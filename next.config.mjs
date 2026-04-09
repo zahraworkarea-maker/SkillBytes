@@ -6,6 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  allowedDevOrigins: ['carbonizable-yu-unmomentously.ngrok-free.dev'],
 }
 
 export default nextConfig

@@ -74,7 +74,7 @@ export function CaseCard({
         isHovered ? 'shadow-lg md:shadow-2xl md:-translate-y-2' : 'hover:shadow-md md:hover:shadow-xl'
       } animate-in fade-in slide-in-from-bottom-6 duration-500`}
       style={{
-        animationDelay: `${Math.random() * 300}ms`,
+        animationDelay: `${(caseNumber - 1) * 100}ms`,
       }}
     >
       {/* Background decorative elements */}
@@ -105,7 +105,15 @@ export function CaseCard({
       </div>
 
       {/* BOTTOM SECTION - White Semi-transparent OVERLAY */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white/75 backdrop-blur-md rounded-t-2xl md:rounded-t-3xl p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col gap-2 sm:gap-3 min-h-[130px] sm:min-h-[140px] md:min-h-[150px] justify-between">
+      <div 
+        className="absolute bottom-0 left-0 right-0 bg-white/75 backdrop-blur-md rounded-t-2xl md:rounded-t-3xl p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col gap-2 sm:gap-3 min-h-[130px] sm:min-h-[140px] md:min-h-[150px] justify-between"
+        onClick={(e) => {
+          if (caseStatus !== 'locked' && onClick) {
+            e.stopPropagation();
+            onClick();
+          }
+        }}
+      >
         {/* Status or Unlock Section */}
         <div className="space-y-2 sm:space-y-3">
           {status && statusLabel && (
@@ -148,6 +156,10 @@ export function CaseCard({
             </button>
           ) : caseStatus === 'complete' ? (
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+              }}
               className="w-full py-2 sm:py-2 md:py-3 bg-green-400 text-white rounded-lg font-bold text-xs sm:text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <Search size={16} className="sm:w-4 sm:h-4" />
@@ -155,6 +167,10 @@ export function CaseCard({
             </button>
           ) : (
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+              }}
               className="w-full py-2 sm:py-2 md:py-3 bg-cyan-400 text-white rounded-lg font-bold text-xs sm:text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <Search size={16} className="sm:w-4 sm:h-4" />

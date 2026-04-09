@@ -1,0 +1,21 @@
+.contentArea {
+  /* Minimal default spacing */
+}
+
+.contentArea p {
+  margin: 1rem 0;
+}
+
+.contentArea h4 {
+  margin: 1rem 0 0.5rem 0;
+  font-weight: bold;
+}
+
+.contentArea ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.contentArea li {
+  margin-bottom: 0.5rem;
+}

@@ -107,7 +107,10 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
       {/* Action Button - Always at bottom */}
       <div className="mt-auto pt-2">
         {assessment.status === 'completed' ? (
-          <button disabled className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 px-3 text-sm rounded-md transition-colors duration-200">
+          <button
+            onClick={() => onStart(assessment)}
+            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 px-3 text-sm rounded-md transition-colors duration-200"
+          >
             View Results
           </button>
         ) : assessment.status === 'in-progress' ? (
@@ -115,7 +118,7 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
             onClick={() => onStart(assessment)}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 text-sm rounded-md transition-colors duration-200"
           >
-            Resume
+            Mulai Mengerjakan
           </button>
         ) : (
           <button disabled className="w-full bg-slate-300 text-slate-500 font-semibold py-1.5 px-3 text-sm rounded-md cursor-not-allowed">

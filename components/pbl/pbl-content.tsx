@@ -1,102 +1,100 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { PBLHeader } from './pbl-header';
 import { ProgressSection } from './progress-section';
 import { FilterTabs, type DifficultyFilter } from './filter-tabs';
 import { CaseCard, type CaseCardProps, levelConfig } from './case-card';
+import { pblCasesData } from '@/lib/pbl-data';
 
-// Raw case data without difficulty/color (will be auto-set)
+// Map difficulty level to numeric level
+const difficultyToLevel: Record<string, number> = {
+  'Beginner': 1,
+  'Intermediate': 2,
+  'Advanced': 3,
+  'Expert': 4,
+  'Master': 5,
+};
+
+// Build cases from pbl-data.ts
+const buildCasesFromData = () => {
+  return Object.values(pblCasesData).map((pblCase, index) => {
+    const level = difficultyToLevel[pblCase.level] || 1;
+    const isCompleted = pblCase.isCompleted || pblCase.status === 'completed';
+
+    return {
+      id: pblCase.id,
+      level,
+      caseNumber: pblCase.caseNumber,
+      title: pblCase.title,
+      isCompleted,
+      index,
+    };
+  });
+};
+
+const rawCases = buildCasesFromData();
+
+// Build cases with auto-locked logic
+const buildAllCases = (router: any): CaseCardProps[] => {
+  return rawCases.map((rawCase, index) => {
+    const config = levelConfig[rawCase.level];
+    const previousRawCase = index > 0 ? rawCases[index - 1] : null;
+    const previousLevelCompleted = rawCase.level === 1 || (previousRawCase?.isCompleted ?? false);
+    const isCompleted = rawCase.isCompleted ?? false;
+
+    // Determine case status: complete, available, or locked
+    let caseStatus: 'complete' | 'available' | 'locked';
+    if (isCompleted) {
+      caseStatus = 'complete';
+    } else if (previousLevelCompleted) {
+      caseStatus = 'available';
+    } else {
+      caseStatus = 'locked';
+    }
+
+    // Auto generate status text based on caseStatus
+    const statusMap = {
+      complete: 'Complete',
+      available: 'Available',
+      locked: 'Locked',
+    };
+
+    return {
+      id: rawCase.id,
+      level: rawCase.level,
+      difficulty: config.difficulty,
+      caseNumber: rawCase.caseNumber,
+      title: rawCase.title,
+      status: statusMap[caseStatus],
+      statusLabel: 'Status',
+      unlockCondition: caseStatus === 'locked' 
+        ? `Complete Level ${rawCase.level - 1}` 
+        : undefined,
+      caseStatus: caseStatus,
+      difficultyColor: config.gradientColor,
+      onClick: caseStatus !== 'locked' 
+        ? () => router.push(`/pbl/${rawCase.id}`)
+        : undefined,
+    };
+  });
+};
+
 interface RawCaseData {
   id: string;
   level: number;
   caseNumber: number;
   title: string;
-  status?: string;
-  statusLabel?: string;
   isCompleted?: boolean;
+  index?: number;
 }
 
-const rawCases: RawCaseData[] = [
-  {
-    id: 'case-01',
-    level: 1,
-    caseNumber: 1,
-    title: 'PBL : Investigation 1',
-    isCompleted: true,
-  },
-  {
-    id: 'case-02',
-    level: 2,
-    caseNumber: 2,
-    title: 'Case #2',
-    isCompleted: true,
-  },
-  {
-    id: 'case-03',
-    level: 3,
-    caseNumber: 3,
-    title: 'Case #3',
-    isCompleted: false,
-  },
-  {
-    id: 'case-04',
-    level: 4,
-    caseNumber: 4,
-    title: 'Case #4',
-    isCompleted: false,
-  },
-  {
-    id: 'case-05',
-    level: 5,
-    caseNumber: 5,
-    title: 'Case #5',
-    isCompleted: false,
-  },
-];
-
-// Build cases with auto-locked logic
-const allCases: CaseCardProps[] = rawCases.map((rawCase, index) => {
-  const config = levelConfig[rawCase.level];
-  const previousRawCase = index > 0 ? rawCases[index - 1] : null;
-  const previousLevelCompleted = rawCase.level === 1 || (previousRawCase?.isCompleted ?? false);
-  const isCompleted = rawCase.isCompleted ?? false;
-
-  // Determine case status: complete, available, or locked
-  let caseStatus: 'complete' | 'available' | 'locked';
-  if (isCompleted) {
-    caseStatus = 'complete';
-  } else if (previousLevelCompleted) {
-    caseStatus = 'available';
-  } else {
-    caseStatus = 'locked';
-  }
-
-  // Auto generate status text based on caseStatus
-  const statusMap = {
-    complete: 'Complete',
-    available: 'Available',
-    locked: 'Locked',
-  };
-
-  return {
-    id: rawCase.id,
-    level: rawCase.level,
-    difficulty: config.difficulty,
-    caseNumber: rawCase.caseNumber,
-    title: rawCase.title,
-    status: statusMap[caseStatus],
-    statusLabel: 'Status',
-    unlockCondition: caseStatus === 'locked' 
-      ? `Complete Level ${rawCase.level - 1}` 
-      : undefined,
-    caseStatus: caseStatus,
-    difficultyColor: config.gradientColor,
-  };
-});
-
 export function PBLContent() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<DifficultyFilter>('all');
+  
+  const allCases = useMemo(() => buildAllCases(router), [router]);
 
   const filteredCases = useMemo(() => {
     if (activeFilter === 'all') {
@@ -106,7 +104,7 @@ export function PBLContent() {
     return allCases.filter(
       (caseItem) => caseItem.difficulty.toLowerCase() === activeFilter
     );
-  }, [activeFilter]);
+  }, [activeFilter, allCases]);
 
   const completedCount = rawCases.filter((c) => c.isCompleted).length;
 

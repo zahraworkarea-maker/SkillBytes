@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Lock, CheckCircle, Clock, Folder, BarChart3, Code2, Database, Layers, Settings, Zap, Cpu, GitBranch, Shuffle, Shield, Plus, Eye, RefreshCw } from 'lucide-react'
 import { AssessmentCard } from '@/components/assesmen/assessment-card'
 import { SKKNILevelCard } from '@/components/assesmen/skkni-level-card'
@@ -168,8 +169,88 @@ const skkniLevels: AssessmentLevel[] = [
 ]
 
 export default function AssesmentPage() {
+  const router = useRouter()
   const [expandedLevels, setExpandedLevels] = useState<Set<number>>(new Set())
-  const dynamicAssessmentLevels: AssessmentLevel[] = [
+  const [completedAssessments, setCompletedAssessments] = useState<Record<string, any>>({})
+
+  // Load completion status dari localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('completedAssessments')
+    console.log('Loading from localStorage:', stored)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      console.log('Parsed data:', parsed)
+      setCompletedAssessments(parsed)
+    }
+  }, [])
+
+  // Log untuk debug
+  useEffect(() => {
+    console.log('=== DEBUG LOG ===')
+    console.log('completedAssessments updated:', completedAssessments)
+    console.log('L1-A1 completed?', completedAssessments['l1-a1']?.completed)
+    console.log('L1-A2 completed?', completedAssessments['l1-a2']?.completed)
+    console.log('L1-A3 completed?', completedAssessments['l1-a3']?.completed)
+    
+    // Test checkPrerequisites for L2-A1
+    const prerequisites = ['l1-a1', 'l1-a2', 'l1-a3']
+    const allL1Complete = prerequisites.every(prereq => completedAssessments[prereq]?.completed === true)
+    console.log('All L1 complete?', allL1Complete)
+    console.log('=== END DEBUG LOG ===')
+  }, [completedAssessments])
+
+  // Assessment level prerequisites - level based unlock
+  // Level 1 semua terbuka, Level 2 buka jika semua L1 selesai, Level 3 buka jika semua L2 selesai
+  const assessmentPrerequisites: Record<string, string[]> = {
+    // Level 1 - All open, no prerequisites
+    'l1-a1': [],
+    'l1-a2': [],
+    'l1-a3': [],
+    // Level 2 - Requires all Level 1 completed
+    'l2-a1': ['l1-a1', 'l1-a2', 'l1-a3'],
+    'l2-a2': ['l1-a1', 'l1-a2', 'l1-a3'],
+    'l2-a3': ['l1-a1', 'l1-a2', 'l1-a3'],
+    // Level 3 - Requires all Level 2 completed
+    'l3-a1': ['l2-a1', 'l2-a2', 'l2-a3'],
+    'l3-a2': ['l2-a1', 'l2-a2', 'l2-a3'],
+    'l3-a3': ['l2-a1', 'l2-a2', 'l2-a3'],
+  }
+
+  // Check if assessment prerequisites are met
+  const checkPrerequisites = (assessmentId: string): boolean => {
+    const prerequisites = assessmentPrerequisites[assessmentId]
+    if (!prerequisites || prerequisites.length === 0) {
+      return true // No prerequisites, so it's allowed
+    }
+    const allMet = prerequisites.every((prereq) => {
+      const isComplete = completedAssessments[prereq]?.completed
+      console.log(`Checking ${assessmentId}: prerequisite ${prereq} = ${isComplete}`)
+      return isComplete
+    })
+    console.log(`Assessment ${assessmentId} prerequisites met: ${allMet}`)
+    return allMet
+  }
+
+  // Update assessment status based on completion and prerequisites
+  const getUpdatedStatus = (assessmentId: string, defaultStatus: 'completed' | 'in-progress' | 'locked') => {
+    // If already completed, show completed
+    if (completedAssessments[assessmentId]?.completed) {
+      console.log(`${assessmentId} -> completed (already done)`)
+      return 'completed'
+    }
+    
+    // Check if prerequisites are met
+    if (!checkPrerequisites(assessmentId)) {
+      console.log(`${assessmentId} -> locked (prerequisites not met)`)
+      return 'locked'
+    }
+    
+    // If prerequisites are met and not completed yet, show in-progress
+    console.log(`${assessmentId} -> in-progress (prerequisites met, ready to take)`)
+    return 'in-progress'
+  }
+
+  const dynamicAssessmentLevels: AssessmentLevel[] = useMemo(() => [
     {
       id: 1,
       levelNumber: 1,
@@ -181,21 +262,21 @@ export default function AssesmentPage() {
           id: 'l1-a1',
           title: 'Konsep Class dan Object',
           icon: <Layers className="w-5 h-5" />,
-          status: 'completed',
+          status: getUpdatedStatus('l1-a1', 'in-progress'),
           description: 'Memahami dasar-dasar class dan object dalam OOP'
         },
         {
           id: 'l1-a2',
           title: 'Constructor dan Destructor',
           icon: <Settings className="w-5 h-5" />,
-          status: 'in-progress',
+          status: getUpdatedStatus('l1-a2', 'in-progress'),
           description: 'Pelajari cara membuat dan menghancurkan objek'
         },
         {
           id: 'l1-a3',
           title: 'Properties dan Methods',
           icon: <Zap className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l1-a3', 'in-progress'),
           description: 'Menguasai atribut dan fungsi dalam class'
         },
       ],
@@ -211,21 +292,21 @@ export default function AssesmentPage() {
           id: 'l2-a1',
           title: 'Inheritance',
           icon: <GitBranch className="w-5 h-5" />,
-          status: 'locked', // Locked because level 1 not fully completed
+          status: getUpdatedStatus('l2-a1', 'locked'),
           description: 'Konsep pewarisan dalam OOP'
         },
         {
           id: 'l2-a2',
           title: 'Polymorphism',
           icon: <Shuffle className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l2-a2', 'locked'),
           description: 'Kemampuan objek untuk memiliki banyak bentuk'
         },
         {
           id: 'l2-a3',
           title: 'Encapsulation',
           icon: <Shield className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l2-a3', 'locked'),
           description: 'Menyembunyikan detail implementasi'
         },
       ],
@@ -241,30 +322,30 @@ export default function AssesmentPage() {
           id: 'l3-a1',
           title: 'Create Operations',
           icon: <Plus className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l3-a1', 'locked'),
           description: 'Operasi pembuatan data dalam OOP'
         },
         {
           id: 'l3-a2',
           title: 'Read Operations',
           icon: <Eye className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l3-a2', 'locked'),
           description: 'Operasi pembacaan data dalam OOP'
         },
         {
           id: 'l3-a3',
           title: 'Update Operations',
           icon: <RefreshCw className="w-5 h-5" />,
-          status: 'locked',
+          status: getUpdatedStatus('l3-a3', 'locked'),
           description: 'Operasi pembaruan data dalam OOP'
         },
       ],
     },
-  ]
+  ], [completedAssessments])
 
   const handleStartAssessment = (assessment: Assessment) => {
-    console.log(`Starting assessment: ${assessment.title}`)
-    // TODO: Navigate to assessment page or open modal
+    const slug = assessment.id.replace(/\s+/g, '-').toLowerCase()
+    router.push(`/assesmen/${slug}`)
   }
 
   return (

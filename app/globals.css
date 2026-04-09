@@ -368,3 +368,34 @@
     animation: slide-right 5s ease-in-out infinite;
   }
 }
+
+/* Dropzone.js styling */
+.dropzone {
+  position: relative;
+  user-select: none;
+}
+
+.dropzone.dz-drag-hover {
+  @apply border-blue-500 bg-blue-100;
+}
+
+.dz-message {
+  display: none;
+}
+
+.dz-preview {
+  display: none;
+}
+
+.dz-error-mark,
+.dz-success-mark {
+  display: none;
+}
+
+.dz-error-message {
+  display: none;
+}
+
+.dz-progress {
+  display: none;
+}

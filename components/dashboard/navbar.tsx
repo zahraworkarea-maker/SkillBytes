@@ -25,7 +25,7 @@ export function Navbar() {
   return (
     <>
       {/* Desktop Navbar */}
-      <nav className="bg-white border-b shadow-sm px-8 py-3.5 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 bg-white border-b shadow-sm px-8 py-3.5 flex items-center justify-between">
         <NavLogo />
 
         <div className="flex items-center gap-8">
