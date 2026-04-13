@@ -23,7 +23,7 @@ export function ProgressSection({
           </div>
           <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-1000 ease-out"
+              className="h-full bg-linear-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-1000 ease-out"
               style={{ width: `${percentage}%` }}
             />
           </div>

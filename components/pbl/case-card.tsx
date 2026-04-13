@@ -70,7 +70,7 @@ export function CaseCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl md:rounded-3xl shadow-md md:shadow-lg transition-all duration-500 cursor-pointer bg-gradient-to-r ${bgGradient} min-h-[280px] sm:min-h-[300px] md:min-h-[330px] ${
+      className={`group relative overflow-hidden rounded-2xl md:rounded-3xl shadow-md md:shadow-lg transition-all duration-500 cursor-pointer bg-linear-to-r ${bgGradient} min-h-[280px] sm:min-h-[300px] md:min-h-[330px] ${
         isHovered ? 'shadow-lg md:shadow-2xl md:-translate-y-2' : 'hover:shadow-md md:hover:shadow-xl'
       } animate-in fade-in slide-in-from-bottom-6 duration-500`}
       style={{

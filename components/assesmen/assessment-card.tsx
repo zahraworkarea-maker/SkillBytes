@@ -57,7 +57,7 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
       {/* Header Section */}
       <div className="mb-2">
         <div className="flex items-start gap-2 mb-2">
-          <div className={`${colors.iconBg} rounded p-1.5 flex items-center justify-center flex-shrink-0`}>
+          <div className={`${colors.iconBg} rounded p-1.5 flex items-center justify-center shrink-0`}>
             <div className={`${colors.iconText} w-4 h-4`}>
               {assessment.icon}
             </div>
@@ -76,7 +76,7 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
         <div className="inline-flex items-center gap-1">
           {assessment.status === 'completed' && (
             <>
-              <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
               <div className="min-w-0">
                 <p className="font-semibold text-base text-slate-900">Completed</p>
                 <p className="text-xs text-slate-600">Completed on 20 April 2026</p>
@@ -85,7 +85,7 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
           )}
           {assessment.status === 'in-progress' && (
             <>
-              <Clock className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" style={{ animationDuration: '3s' }} />
+              <Clock className="w-4 h-4 text-blue-600 animate-spin shrink-0" style={{ animationDuration: '3s' }} />
               <div className="min-w-0">
                 <p className="font-semibold text-base text-slate-900">In Progress</p>
                 <p className="text-xs text-slate-600">Currently doing...</p>
@@ -94,7 +94,7 @@ export function AssessmentCard({ assessment, onStart, style = 'colored' }: Asses
           )}
           {assessment.status === 'locked' && (
             <>
-              <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <Lock className="w-4 h-4 text-slate-400 shrink-0" />
               <div className="min-w-0">
                 <p className="font-semibold text-base text-slate-900">Locked</p>
                 <p className="text-xs text-slate-600">Complete previous assessments</p>

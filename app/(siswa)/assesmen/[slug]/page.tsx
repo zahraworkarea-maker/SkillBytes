@@ -118,7 +118,7 @@ export default function AssessmentPage() {
                 toast.dismiss(t)
                 handleSubmit()
               }}
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+              className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
             >
               Ya, Selesai
             </button>
@@ -164,7 +164,7 @@ export default function AssessmentPage() {
     const completedDate = new Date(completedData.timestamp).toLocaleDateString('id-ID')
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl bg-white shadow-2xl">
           <div className="p-8 md:p-12 text-center">
             {/* Completed Icon */}
@@ -249,7 +249,7 @@ export default function AssessmentPage() {
   // Loading state
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
         <div className="text-white text-center">
           <p className="text-lg">Loading...</p>
         </div>
@@ -260,12 +260,12 @@ export default function AssessmentPage() {
   // Start Screen
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl bg-white shadow-2xl">
           <div className="p-8 md:p-12">
             {/* Header Icon */}
             <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-20 h-20 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                 <BookOpen className="w-10 h-10 text-white" />
               </div>
             </div>
@@ -299,19 +299,19 @@ export default function AssessmentPage() {
               <h3 className="font-semibold text-slate-900 mb-3">Instruksi:</h3>
               <ul className="space-y-2 text-sm text-slate-700">
                 <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 flex-shrink-0">1.</span>
+                  <span className="font-bold text-blue-600 shrink-0">1.</span>
                   <span>Baca setiap pertanyaan dengan cermat</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 flex-shrink-0">2.</span>
+                  <span className="font-bold text-blue-600 shrink-0">2.</span>
                   <span>Pilih salah satu jawaban yang paling tepat</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 flex-shrink-0">3.</span>
+                  <span className="font-bold text-blue-600 shrink-0">3.</span>
                   <span>Anda dapat kembali ke pertanyaan sebelumnya</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 flex-shrink-0">4.</span>
+                  <span className="font-bold text-blue-600 shrink-0">4.</span>
                   <span>Jawab semua pertanyaan sebelum submit</span>
                 </li>
               </ul>
@@ -320,7 +320,7 @@ export default function AssessmentPage() {
             {/* Start Button */}
             <Button
               onClick={() => setIsStarted(true)}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-6 text-lg rounded-lg transition-all duration-300 transform hover:scale-105"
+              className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-6 text-lg rounded-lg transition-all duration-300 transform hover:scale-105"
             >
               Mulai Assessment
             </Button>
@@ -337,7 +337,7 @@ export default function AssessmentPage() {
     const isPassed = percentage >= 60
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl bg-white shadow-2xl">
           <div className="p-8 md:p-12 text-center">
             {/* Score Icon */}
@@ -438,7 +438,7 @@ export default function AssessmentPage() {
 
   // Quiz Screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
       {/* Header */}
       <div className="max-w-4xl mx-auto mb-8">
         <div className="flex items-center justify-between mb-6">
@@ -483,7 +483,7 @@ export default function AssessmentPage() {
         <Card className="bg-white shadow-2xl">
           <div className="p-8 md:p-10">
             {/* Question Number Badge */}
-            <div className="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-bold mb-6">
+            <div className="inline-block bg-linear-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-bold mb-6">
               Soal {currentQuestionIndex + 1}
             </div>
 
@@ -533,7 +533,7 @@ export default function AssessmentPage() {
                   >
                     <div className="flex items-start gap-4">
                       <div
-                        className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                           isSelected
                             ? 'border-blue-600 bg-blue-600'
                             : 'border-slate-300 bg-white'
@@ -616,7 +616,7 @@ export default function AssessmentPage() {
               onClick={() => setCurrentQuestionIndex(index)}
               className={`w-10 h-10 rounded-lg font-bold transition-all duration-300 ${
                 index === currentQuestionIndex
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white scale-110'
+                  ? 'bg-linear-to-r from-blue-600 to-purple-600 text-white scale-110'
                   : answers[assessment.questions[index].id]
                   ? 'bg-green-500 text-white hover:scale-110'
                   : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -633,7 +633,7 @@ export default function AssessmentPage() {
               setShowResults(true)
               setIsViewingCompletedAnswers(false)
             }}
-            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
+            className="flex items-center gap-2 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
           >
             <CheckCircle2 className="w-5 h-5" />
             Kembali ke Hasil
@@ -641,7 +641,7 @@ export default function AssessmentPage() {
         ) : currentQuestionIndex === assessment.totalQuestions - 1 ? (
           <Button
             onClick={handleConfirmSubmit}
-            className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
+            className="flex items-center gap-2 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
           >
             <CheckCircle2 className="w-5 h-5" />
             Selesai
@@ -650,7 +650,7 @@ export default function AssessmentPage() {
           <Button
             onClick={handleNext}
             disabled={isViewingCompletedAnswers}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Selanjutnya
             <ChevronRight className="w-5 h-5" />

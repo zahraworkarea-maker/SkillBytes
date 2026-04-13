@@ -400,10 +400,10 @@ export default function PBLDetailPage() {
                     {uploadedFiles.map((file, index) => (
                       <div 
                         key={index}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-slate-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                        className="flex items-center justify-between p-4 bg-linear-to-r from-blue-50 to-slate-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
                       >
                         <div className="flex items-center gap-3 flex-1">
-                          <Upload className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                          <Upload className="w-4 h-4 text-blue-500 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
                             <p className="text-xs text-slate-500">
@@ -413,7 +413,7 @@ export default function PBLDetailPage() {
                         </div>
                         <button
                           onClick={() => handleRemoveFile(file.name)}
-                          className="p-2 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                          className="p-2 hover:bg-red-100 rounded transition-colors shrink-0"
                           title="Hapus file"
                         >
                           <X className="w-4 h-4 text-red-500" />

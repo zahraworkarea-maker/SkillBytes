@@ -4,7 +4,7 @@ export function PBLBackground() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
       {/* Base dark gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900" />
+      <div className="absolute inset-0 bg-linear-to-br from-slate-900 via-blue-900 to-slate-900" />
 
       {/* Animated gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-blue-50/40 via-transparent to-cyan-50/40" />

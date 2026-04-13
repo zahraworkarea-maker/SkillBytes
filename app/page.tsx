@@ -21,7 +21,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4 sm:p-8">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-blue-50 to-slate-50 p-4 sm:p-8">
       {/* Card Container */}
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row lg:min-h-[640px]">
         {/* Left Side - Image */}
