@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Menu, LogOut } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -12,11 +12,24 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
+import { useAuth } from '@/hooks/use-auth'
 import { NavLogo } from './nav-logo'
 
 export function NavMobile() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, logout } = useAuth()
+
+  const displayName = user?.name || 'User'
+  const displayRole = (user?.role_label || user?.role || '-').toUpperCase()
+  const avatarInitial = displayName.charAt(0).toUpperCase()
+
+  const handleLogout = async () => {
+    await logout()
+    setIsOpen(false)
+    router.replace('/')
+  }
 
   const links = [
     { href: '/dashboard', label: 'Dashboard' },
@@ -73,20 +86,17 @@ export function NavMobile() {
             {/* User Info */}
             <div className="flex items-center gap-3 pb-3 border-b">
               <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-gray-200 text-gray-600 font-semibold">Z</AvatarFallback>
+                <AvatarFallback className="bg-gray-200 text-gray-600 font-semibold">{avatarInitial}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 leading-tight">Zahra</p>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">SISWA</p>
+                <p className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">{displayRole}</p>
               </div>
             </div>
 
             {/* Logout Button */}
             <button
-              onClick={() => {
-                console.log('Logout clicked')
-                setIsOpen(false)
-              }}
+              onClick={handleLogout}
               className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors font-medium text-sm"
             >
               <LogOut className="w-4 h-4" />

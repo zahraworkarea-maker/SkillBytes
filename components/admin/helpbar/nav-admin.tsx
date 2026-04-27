@@ -13,7 +13,7 @@ interface NavAdminProps {
 
 const NavAdmin: React.FC<NavAdminProps> = ({
   onToggleSidebar,
-  userName = 'Ember Crest',
+  userName = 'Zahra Humaira',
   userAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ember',
 }) => {
   return (

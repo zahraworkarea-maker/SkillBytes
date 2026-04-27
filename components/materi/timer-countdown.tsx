@@ -3,13 +3,19 @@
 import React, { useState, useEffect } from 'react'
 import { Clock } from 'lucide-react'
 
+// ✅ TAMBAHAN: Tambahkan onComplete di interface
 interface TimerCountdownProps {
   lessonId: string
   totalSeconds?: number
+  durationMinutes?: number
+  onComplete?: () => void
 }
 
-export function TimerCountdown({ lessonId, totalSeconds = 25 * 60 }: TimerCountdownProps) {
-  const [timeLeft, setTimeLeft] = useState<number>(totalSeconds)
+// ✅ TAMBAHAN: Masukkan onComplete ke parameter komponen
+export function TimerCountdown({ lessonId, totalSeconds, durationMinutes, onComplete }: TimerCountdownProps) {
+  // Konversi durationMinutes ke totalSeconds jika diberikan
+  const finalTotalSeconds = durationMinutes ? durationMinutes * 60 : (totalSeconds || 25 * 60)
+  const [timeLeft, setTimeLeft] = useState<number>(finalTotalSeconds)
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const storageKey = `timer_${lessonId}`
@@ -21,12 +27,15 @@ export function TimerCountdown({ lessonId, totalSeconds = 25 * 60 }: TimerCountd
     if (saved) {
       const { time } = JSON.parse(saved)
       setTimeLeft(time)
+    } else {
+      // Set initial time dari finalTotalSeconds jika tidak ada saved
+      setTimeLeft(finalTotalSeconds)
     }
     
     // SELALU auto-play saat kembali ke page (jangan cek isPaused dari localStorage)
     setIsRunning(true)
     setIsPaused(false)
-  }, [lessonId, storageKey])
+  }, [lessonId, storageKey, finalTotalSeconds])
 
   // Timer logic
   useEffect(() => {
@@ -46,7 +55,14 @@ export function TimerCountdown({ lessonId, totalSeconds = 25 * 60 }: TimerCountd
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isRunning, timeLeft, lessonId])
+  }, [isRunning, timeLeft, lessonId, storageKey])
+
+  // ✅ TAMBAHAN: Effect khusus untuk memanggil onComplete saat waktu habis
+  useEffect(() => {
+    if (timeLeft === 0 && onComplete) {
+      onComplete()
+    }
+  }, [timeLeft, onComplete])
 
   // Handle visibility change (pause saat tab tidak aktif, resume saat aktif)
   useEffect(() => {
@@ -82,7 +98,7 @@ export function TimerCountdown({ lessonId, totalSeconds = 25 * 60 }: TimerCountd
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [lessonId])
+  }, [lessonId, storageKey])
 
   // Pause timer saat user keluar dari halaman
   useEffect(() => {
@@ -119,7 +135,7 @@ export function TimerCountdown({ lessonId, totalSeconds = 25 * 60 }: TimerCountd
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('click', handleLinkClick)
     }
-  }, [lessonId])
+  }, [lessonId, storageKey])
 
   // Format waktu
   const minutes = Math.floor(timeLeft / 60)

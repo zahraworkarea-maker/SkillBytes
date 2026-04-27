@@ -2,180 +2,193 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react' // Tambah icon CheckCircle2
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+
 import { materiData } from '@/lib/materi-data'
-import { PDFViewer } from '@/components/materi/pdf-viewer'
+import { materiService } from '@/lib/api-services'
 import { TimerCountdown } from '@/components/materi/timer-countdown'
 import { Button } from '@/components/ui/button'
+
+// ✅ FIX: dynamic import (ANTI DOMMatrix ERROR)
+const PDFViewer = dynamic(
+  () => import('@/components/materi/pdf-viewer').then(mod => mod.PDFViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[400px] flex items-center justify-center">
+        <p>Memuat PDF...</p>
+      </div>
+    ),
+  }
+)
+
+interface LessonData {
+  id: number | string
+  slug: string
+  title: string
+  description: string
+  duration: string
+  pdf_url: string
+  completed: boolean
+}
 
 export default function MateriDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const slug = params.slug as string
+  const lessonId = params.slug as string
+
+  const [lesson, setLesson] = useState<LessonData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isTimerComplete, setIsTimerComplete] = useState(false)
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false)
+  const [completeError, setCompleteError] = useState<string | null>(null)
 
-  // Find the lesson from all courses
-  let lesson = null
-  let course = null
-  let level = null
-
-  for (const courseData of materiData) {
-    for (const levelData of courseData.levels) {
-      const found = levelData.lessons.find(lesson => lesson.id === slug)
-      if (found) {
-        lesson = found
-        course = courseData
-        level = levelData
-        break
-      }
-    }
-    if (lesson) break
-  }
-
-  // Check timer status
   useEffect(() => {
-    const checkTimer = () => {
-      const saved = localStorage.getItem(`timer_${slug}`)
-      if (saved) {
-        const { time } = JSON.parse(saved)
-        setIsTimerComplete(time === 0)
+    const fetchLesson = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await materiService.getLessonById(lessonId)
+
+        const lessonData = Array.isArray(response?.data)
+          ? response.data[0]
+          : response?.data || response
+
+        if (!lessonData) {
+          throw new Error('Data materi tidak ditemukan')
+        }
+
+        setLesson(lessonData)
+      } catch (err) {
+        console.error(err)
+        setError('Gagal memuat data materi.')
+      } finally {
+        setLoading(false)
       }
     }
 
-    checkTimer()
-    const interval = setInterval(checkTimer, 1000)
-    return () => clearInterval(interval)
-  }, [slug])
+    fetchLesson()
+  }, [lessonId])
 
-  const handleMarkComplete = () => {
-    // Mark lesson as completed in localStorage
-    localStorage.setItem(`lesson_completed_${slug}`, JSON.stringify({
-      completed: true,
-      completedAt: new Date().toISOString()
-    }))
-    
-    // Redirect to materi page
-    router.push('/materi')
+  // Fungsi untuk handle klik tombol selesai
+  const handleComplete = async () => {
+    try {
+      setIsMarkingComplete(true)
+      setCompleteError(null)
+      
+      if (!lesson) {
+        throw new Error('Data materi tidak ditemukan')
+      }
+      
+      // ✅ Panggil API untuk menandai lesson sebagai completed menggunakan ID
+      console.log('[PAGE] Calling completeLesson API for lesson ID:', lesson.id)
+      const response = await materiService.completeLesson(String(lesson.id))
+      
+      console.log('[PAGE] Lesson completed successfully:', response)
+
+      // Redirect kembali ke halaman materi setelah sukses
+      router.push('/materi')
+      
+    } catch (error: any) {
+      console.error('[PAGE] Error completing lesson:', error)
+      
+      // Extract error message dari response atau error object
+      const errorMessage = 
+        error.response?.data?.message ||
+        error.response?.statusText ||
+        error.message ||
+        'Gagal menyelesaikan materi. Silakan coba lagi.'
+      
+      setCompleteError(errorMessage)
+      setIsMarkingComplete(false)
+    }
   }
 
-  if (!lesson || !course || !level) {
-    return (
-      <div className="min-h-screen bg-slate-50 py-8">
-        <div className="container mx-auto px-4">
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">Materi Tidak Ditemukan</h1>
-            <p className="text-slate-600 mb-6">Materi yang Anda cari tidak tersedia</p>
-            <Link href="/materi">
-              <Button>Kembali ke Materi</Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
+  if (loading) {
+    return <p className="text-center py-10">Memuat materi...</p>
   }
 
-  const difficultyColors = {
-    'Pemula': 'bg-blue-100 text-blue-700',
-    'Menengah': 'bg-amber-100 text-amber-700',
-    'Advanced': 'bg-red-100 text-red-700',
+  if (!lesson) {
+    return <p className="text-center py-10">Materi tidak ditemukan</p>
   }
+
+  const durationMinutes = parseInt(lesson.duration) || 25
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Breadcrumb */}
-        <div className="mb-6 flex items-center gap-2">
-          <Link href="/materi" className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
-            <ArrowLeft className="w-4 h-4" />
-            Materi
-          </Link>
+      <main className="container mx-auto px-4 py-8 max-w-7xl">
+
+        <Link href="/materi" className="flex items-center gap-2 text-blue-600 mb-6 hover:text-blue-700 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          Kembali ke Materi
+        </Link>
+
+        <h1 className="text-3xl font-bold text-slate-800 mb-4">{lesson.title}</h1>
+
+        {/* 🔥 Tambahkan props onComplete di sini */}
+        <TimerCountdown 
+          lessonId={lessonId} 
+          durationMinutes={durationMinutes} 
+          onComplete={() => setIsTimerComplete(true)} 
+        />
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 md:p-6 mt-6">
+          <PDFViewer pdfUrl={lesson.pdf_url} fileName={lesson.title} />
         </div>
 
-        {/* Timer Countdown */}
-        <TimerCountdown lessonId={slug} />
-
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">
-              {course.title.split(' ').length > 3 
-                ? `Level ${level.levelNumber}: ${lesson.title}` 
-                : lesson.title}
-            </h1>
-          </div>
-
-          {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className={`px-3 py-1 rounded-full font-medium ${difficultyColors[lesson.difficulty]}`}>
-              {lesson.difficulty}
-            </span>
-            {lesson.duration && (
-              <>
-                <span className="text-slate-600">•</span>
-                <span className="text-slate-700 font-medium">{lesson.duration}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-8">
-          {/* PDF Viewer */}
-          <div className="p-6 md:p-8">
-            <PDFViewer pdfUrl={lesson.pdfUrl} fileName={lesson.title} />
-          </div>
-        </div>
-
-        {/* Summary Section */}
-        {lesson.summary && (
-          <div className="bg-blue-50 rounded-lg border border-blue-200 p-6 md:p-8 mb-8">
-            <h2 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center text-sm font-bold">📝</span>
-              Ringkasan Materi
-            </h2>
-            <p className="text-blue-800 leading-relaxed">
-              {lesson.summary}
+        {lesson.description && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6 transition-all duration-300 hover:shadow-md">
+            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Deskripsi Materi
+            </h3>
+            <div className="w-12 h-1 bg-blue-100 rounded-full mb-4"></div>
+            <p className="text-slate-600 leading-relaxed text-justify">
+              {lesson.description}
             </p>
           </div>
         )}
 
-        {/* Chapter Content */}
-        {lesson.chapters && lesson.chapters.length > 0 && (
-          <div className="space-y-6">
-            {lesson.chapters.map((chapter) => (
-              <div key={chapter.id} className="bg-white rounded-lg border border-slate-200 p-6 md:p-8">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">{chapter.title}</h2>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {chapter.content}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Navigation Buttons */}
-        <div className="mt-12 flex justify-between items-center">
-          <Link href="/materi">
-            <Button variant="outline">← Kembali ke Daftar Materi</Button>
-          </Link>
-          <div className="flex items-center gap-4">
-            {lesson.completed && (
-              <div className="text-sm text-green-600 font-medium flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                Sudah Diselesaikan
-              </div>
-            )}
-            <Button 
-              disabled={!isTimerComplete}
-              onClick={handleMarkComplete}
-              className={!isTimerComplete ? 'opacity-50 cursor-not-allowed' : ''}
-              title={!isTimerComplete ? 'Selesaikan membaca materi selama 25 menit terlebih dahulu' : ''}
+        {/* --- 🔥 TAMBAHAN: Action Button Area --- */}
+        <div className="mt-8">
+          {/* Error Alert */}
+          {completeError && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm font-medium">{completeError}</p>
+            </div>
+          )}
+          
+          <div className="flex justify-end">
+            <Button
+              onClick={handleComplete}
+              disabled={!isTimerComplete || isMarkingComplete}
+              size="lg"
+              className={`px-8 py-6 rounded-xl text-base font-semibold transition-all duration-300 ${
+                !isTimerComplete 
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed' // Style saat disabled
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5' // Style saat aktif
+              }`}
             >
-              {isTimerComplete ? '✓ Tandai Selesai' : 'Lanjutkan Membaca'}
+              {isMarkingComplete ? (
+                'Memproses...'
+              ) : !isTimerComplete ? (
+                'Selesaikan Waktu Baca Dahulu'
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  Selesai Membaca
+                </>
+              )}
             </Button>
           </div>
         </div>
+
       </main>
     </div>
   )

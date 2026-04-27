@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, BookOpen, Upload, X } from 'lucide-react'
-import { materiData, DifficultyLevel } from '@/lib/materi-data'
+import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, Code, Upload, X, AlertCircle } from 'lucide-react'
+import { pblCasesData } from '@/lib/pbl-data'
 import {
   useReactTable,
   getCoreRowModel,
@@ -20,73 +20,81 @@ import {
 } from '@tanstack/react-table'
 import { toast } from 'react-toastify'
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024 // 1 MB
+const ALLOWED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml']
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+const MAX_IMAGE_SIZE = 1 * 1024 * 1024 // 1 MB
 
-const validatePdfFile = (file: File): { valid: boolean; error?: string } => {
+const validateImageFile = (file: File): { valid: boolean; error?: string } => {
   // Check file extension
-  if (!file.name.toLowerCase().endsWith('.pdf')) {
-    return { valid: false, error: 'File harus berekstensi .pdf' }
+  const fileName = file.name.toLowerCase()
+  const hasValidExtension = ALLOWED_IMAGE_EXTENSIONS.some(ext => fileName.endsWith(ext))
+  
+  if (!hasValidExtension) {
+    return { valid: false, error: `Format gambar harus: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}` }
   }
 
   // Check MIME type
-  if (file.type !== 'application/pdf') {
-    return { valid: false, error: 'Hanya file PDF yang diizinkan!' }
+  if (!ALLOWED_IMAGE_FORMATS.includes(file.type)) {
+    return { valid: false, error: `Format gambar harus: JPG, JPEG, PNG, GIF, WebP, BMP, atau SVG` }
   }
 
   // Check file size
-  if (file.size > MAX_FILE_SIZE) {
-    return { valid: false, error: `Ukuran file maksimal ${MAX_FILE_SIZE / 1024 / 1024}MB` }
+  if (file.size > MAX_IMAGE_SIZE) {
+    return { valid: false, error: `Ukuran gambar maksimal ${MAX_IMAGE_SIZE / 1024 / 1024}MB` }
   }
 
   return { valid: true }
 }
 
-export default function MateriManagementPage() {
-  const allLessons = materiData.flatMap(course =>
-    course.levels.flatMap(level =>
-      level.lessons.map(lesson => ({
-        ...lesson,
-        courseTitle: course.title,
-        levelNumber: level.levelNumber,
-      }))
-    )
-  )
-  const [lessons, setLessons] = useState(allLessons)
+export default function PBLManagementPage() {
+  const allCases = Object.values(pblCasesData)
+  const [cases, setCases] = useState(allCases)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingLesson, setEditingLesson] = useState<any | null>(null)
+  const [editingCase, setEditingCase] = useState<any | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [formData, setFormData] = useState({
     title: '',
-    difficulty: '1' as DifficultyLevel,
-    duration: '',
-    pdfFile: null as File | null,
-    pdfUrl: '',
+    level: 'Beginner' as 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert' | 'Master',
     description: '',
+    startDate: '',
+    deadline: '',
+    imageFile: null as File | null,
+    imageUrl: '',
   })
 
-  const handleEdit = (lesson: any) => {
-    setEditingLesson(lesson)
+  const calculateTimeLimitInMinutes = (start: string, end: string): number => {
+    if (!start || !end) return 0
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    const diffInMs = endDate.getTime() - startDate.getTime()
+    return Math.round(diffInMs / (1000 * 60))
+  }
+
+  const handleEdit = (caseItem: any) => {
+    setEditingCase(caseItem)
     setFormData({
-      title: lesson.title,
-      difficulty: lesson.difficulty,
-      duration: lesson.duration || '',
-      pdfFile: null,
-      pdfUrl: lesson.pdfUrl || '',
-      description: lesson.description || '',
+      title: caseItem.title,
+      level: caseItem.level,
+      description: caseItem.description,
+      startDate: caseItem.startDate,
+      deadline: caseItem.deadline,
+      imageFile: null,
+      imageUrl: caseItem.imageUrl || '',
     })
     setIsDialogOpen(true)
   }
 
   const handleAdd = () => {
-    setEditingLesson(null)
+    setEditingCase(null)
     setFormData({
       title: '',
-      difficulty: '1',
-      duration: '',
-      pdfFile: null,
-      pdfUrl: '',
+      level: 'Beginner',
       description: '',
+      startDate: '',
+      deadline: '',
+      imageFile: null,
+      imageUrl: '',
     })
     setIsDialogOpen(true)
   }
@@ -95,7 +103,7 @@ export default function MateriManagementPage() {
     const Swal = (await import('sweetalert2')).default
     const result = await Swal.fire({
       title: 'Konfirmasi Hapus',
-      text: 'Apakah Anda yakin ingin menghapus materi ini?',
+      text: 'Apakah Anda yakin ingin menghapus kasus PBL ini?',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Ya, Hapus',
@@ -105,47 +113,68 @@ export default function MateriManagementPage() {
     })
 
     if (result.isConfirmed) {
-      setLessons(lessons.filter(lesson => lesson.id !== id))
-      toast.success('Materi berhasil dihapus!')
+      setCases(cases.filter(caseItem => caseItem.id !== id))
+      toast.success('Kasus PBL berhasil dihapus!')
     }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingLesson) {
+    if (editingCase) {
       // Edit tanpa konfirmasi
-      setLessons(lessons.map(lesson =>
-        lesson.id === editingLesson.id
-          ? { 
-              ...lesson,
+      setCases(cases.map(caseItem =>
+        caseItem.id === editingCase.id
+          ? {
+              ...caseItem,
               title: formData.title,
-              difficulty: formData.difficulty,
-              duration: formData.duration,
-              pdfUrl: formData.pdfUrl,
+              level: formData.level,
               description: formData.description,
+              timeLimit: calculateTimeLimitInMinutes(formData.startDate, formData.deadline),
+              startDate: formData.startDate,
+              deadline: formData.deadline,
+              imageUrl: formData.imageUrl,
             }
-          : lesson
+          : caseItem
       ))
-      toast.success('Materi berhasil diedit!')
+      toast.success('Kasus PBL berhasil diedit!')
       setIsDialogOpen(false)
     } else {
       // Add tanpa konfirmasi
-      const newLesson: any = {
-        id: Date.now().toString(),
+      const newCase: any = {
+        id: `case-${Date.now().toString()}`,
+        caseNumber: cases.length + 1,
         title: formData.title,
-        difficulty: formData.difficulty,
-        duration: formData.duration,
-        pdfUrl: formData.pdfUrl,
+        level: formData.level,
         description: formData.description,
-        icon: BookOpen, // Default icon
-        completed: false,
-        courseTitle: 'Pemrograman Berorientasi Objek', // Default course
-        levelNumber: 1, // Default level
+        content: `<div><p>${formData.description}</p></div>`,
+        timeLimit: calculateTimeLimitInMinutes(formData.startDate, formData.deadline),
+        isCompleted: false,
+        startDate: formData.startDate,
+        deadline: formData.deadline,
+        status: 'not-started',
+        imageUrl: formData.imageUrl,
       }
-      setLessons([...lessons, newLesson])
-      toast.success('Materi berhasil ditambahkan!')
+      setCases([...cases, newCase])
+      toast.success('Kasus PBL berhasil ditambahkan!')
       setIsDialogOpen(false)
+    }
+  }
+
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'Beginner':
+        return 'bg-green-100 text-green-800'
+      case 'Intermediate':
+        return 'bg-blue-100 text-blue-800'
+      case 'Advanced':
+        return 'bg-orange-100 text-orange-800'
+      case 'Expert':
+        return 'bg-red-100 text-red-800'
+      case 'Master':
+        return 'bg-purple-100 text-purple-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
@@ -172,30 +201,31 @@ export default function MateriManagementPage() {
       },
     },
     {
-      accessorKey: 'description',
-      header: 'Deskripsi',
-      cell: ({ getValue }) => (
-        <div className="max-w-xs truncate line-clamp-1">{getValue<string>()}</div>
-      ),
-    },
-
-    {
-      accessorKey: 'duration',
-      header: 'Durasi',
-    },
-    {
-      accessorKey: 'levelNumber',
+      accessorKey: 'level',
       header: 'Level',
       cell: ({ getValue }) => {
-        const level = getValue() as number
-        const color = level === 1 ? 'bg-blue-100 text-blue-800' :
-                      level === 2 ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
+        const level = getValue<string>()
         return (
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${color}`}>
-            Level {level}
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getLevelColor(level)}`}>
+            {level}
           </span>
         )
+      },
+    },
+    {
+      accessorKey: 'startDate',
+      header: 'Tanggal Mulai',
+      cell: ({ getValue }) => {
+        const date = new Date(getValue<string>())
+        return date.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })
+      },
+    },
+    {
+      accessorKey: 'deadline',
+      header: 'Tanggal Deadline',
+      cell: ({ getValue }) => {
+        const date = new Date(getValue<string>())
+        return date.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })
       },
     },
     {
@@ -225,7 +255,7 @@ export default function MateriManagementPage() {
   ]
 
   const table = useReactTable({
-    data: lessons,
+    data: cases,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -242,11 +272,11 @@ export default function MateriManagementPage() {
     <div className="container mx-auto p-6 bg-linear-to-br from-blue-50 via-white to-blue-25 min-h-screen">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-          Kelola Materi
+          Kelola Kasus PBL
         </h1>
         <Button onClick={handleAdd} className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
           <Plus className="mr-2 h-5 w-5" />
-          Tambah Materi
+          Tambah Kasus PBL
         </Button>
       </div>
 
@@ -255,7 +285,7 @@ export default function MateriManagementPage() {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400 h-5 w-5" />
           <Input
-            placeholder="Cari materi..."
+            placeholder="Cari kasus PBL..."
             value={globalFilter ?? ''}
             onChange={(event) => setGlobalFilter(String(event.target.value))}
             className="pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 bg-white/80 backdrop-blur-sm shadow-sm"
@@ -309,7 +339,7 @@ export default function MateriManagementPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="border-2 border-blue-200 bg-white/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader className="border-b-2 border-blue-200 pb-4">
-            <DialogTitle className="text-blue-900 text-xl font-bold">{editingLesson ? 'Edit Materi' : 'Tambah Materi'}</DialogTitle>
+            <DialogTitle className="text-blue-900 text-xl font-bold">{editingCase ? 'Edit Kasus PBL' : 'Tambah Kasus PBL'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -327,66 +357,99 @@ export default function MateriManagementPage() {
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Masukkan deskripsi materi..."
+                placeholder="Masukkan deskripsi kasus PBL..."
               />
             </div>
             <div>
-              <Label htmlFor="difficulty">Tingkat Kesulitan</Label>
+              <Label htmlFor="level">Level Kesulitan</Label>
               <select
-                id="difficulty"
-                value={formData.difficulty}
-                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as DifficultyLevel })}
+                id="level"
+                value={formData.level}
+                onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 required
               >
-                <option value="1">Level 1</option>
-                <option value="2">Level 2</option>
-                <option value="3">Level 3</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+                <option value="Expert">Expert</option>
+                <option value="Master">Master</option>
               </select>
             </div>
             <div>
-              <Label htmlFor="duration">Durasi</Label>
+              <Label htmlFor="startDate">Tanggal Mulai</Label>
               <Input
-                id="duration"
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                placeholder="e.g. 25 Menit"
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                required
               />
             </div>
             <div>
-              <Label htmlFor="pdfFile">File PDF</Label>
+              <Label htmlFor="deadline">Tanggal Deadline</Label>
+              <Input
+                id="deadline"
+                type="date"
+                value={formData.deadline}
+                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                required
+              />
+            </div>            <div>
+              <Label htmlFor="imageFile">Gambar Kasus</Label>
+              <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Format yang diizinkan: JPG, JPEG, PNG, GIF, WebP, BMP, SVG (Max 1MB)
+              </p>
               <div
                 className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
                 onDrop={(e) => {
                   e.preventDefault()
                   const files = e.dataTransfer.files
                   if (files.length > 0) {
-                    const validation = validatePdfFile(files[0])
+                    const validation = validateImageFile(files[0])
                     if (validation.valid) {
-                      setFormData({ ...formData, pdfFile: files[0] })
-                      toast.success('File PDF berhasil dipilih!')
+                      setFormData({ ...formData, imageFile: files[0] })
+                      toast.success('Gambar berhasil dipilih!')
                     } else {
                       toast.error(validation.error)
                     }
                   }
                 }}
                 onDragOver={(e) => e.preventDefault()}
-                onClick={() => document.getElementById('pdfFileInput')?.click()}
+                onClick={() => document.getElementById('imageFileInput')?.click()}
               >
-                {formData.pdfFile ? (
+                {formData.imageFile ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Upload className="w-5 h-5 text-blue-600" />
                       <div className="text-left">
-                        <p className="font-semibold text-gray-700">{formData.pdfFile.name}</p>
-                        <p className="text-sm text-gray-500">{(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="font-semibold text-gray-700">{formData.imageFile.name}</p>
+                        <p className="text-sm text-gray-500">{(formData.imageFile.size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setFormData({ ...formData, pdfFile: null })
+                        setFormData({ ...formData, imageFile: null })
+                      }}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : formData.imageUrl ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Upload className="w-5 h-5 text-blue-600" />
+                      <p className="text-left font-semibold text-gray-700">Gambar saat ini tersimpan</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setFormData({ ...formData, imageUrl: '' })
                       }}
                       className="text-red-600 hover:text-red-700"
                     >
@@ -396,22 +459,22 @@ export default function MateriManagementPage() {
                 ) : (
                   <div>
                     <Upload className="mx-auto w-8 h-8 text-blue-400 mb-2" />
-                    <p className="text-gray-700 font-medium">Drag and drop PDF di sini</p>
+                    <p className="text-gray-700 font-medium">Drag and drop gambar di sini</p>
                     <p className="text-sm text-gray-500">atau klik untuk memilih file</p>
                   </div>
                 )}
               </div>
               <input
-                id="pdfFileInput"
+                id="imageFileInput"
                 type="file"
-                accept=".pdf"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) {
-                    const validation = validatePdfFile(file)
+                    const validation = validateImageFile(file)
                     if (validation.valid) {
-                      setFormData({ ...formData, pdfFile: file })
-                      toast.success('File PDF berhasil dipilih!')
+                      setFormData({ ...formData, imageFile: file })
+                      toast.success('Gambar berhasil dipilih!')
                     } else {
                       toast.error(validation.error)
                     }
@@ -420,13 +483,12 @@ export default function MateriManagementPage() {
                 className="hidden"
               />
             </div>
-
             <div className="flex justify-end space-x-3">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-blue-300 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-all duration-200">
                 Batal
               </Button>
               <Button type="submit" className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                {editingLesson ? 'Simpan' : 'Tambah'}
+                {editingCase ? 'Simpan' : 'Tambah'}
               </Button>
             </div>
           </form>

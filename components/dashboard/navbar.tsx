@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogOut } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -10,6 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/hooks/use-auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { NavLogo } from './nav-logo'
 import { NavMobile } from './nav-mobile'
@@ -17,6 +18,17 @@ import { NavMobile } from './nav-mobile'
 export function Navbar() {
   const isMobile = useIsMobile()
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, logout } = useAuth()
+
+  const displayName = user?.name || 'User'
+  const displayRole = (user?.role_label || user?.role || '-').toUpperCase()
+  const avatarInitial = displayName.charAt(0).toUpperCase()
+
+  const handleLogout = async () => {
+    await logout()
+    router.replace('/')
+  }
 
   if (isMobile) {
     return <NavMobile />
@@ -75,19 +87,17 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <Avatar className="w-9 h-9">
-                <AvatarFallback className="bg-gray-200 text-gray-600 text-base font-semibold">Z</AvatarFallback>
+                <AvatarFallback className="bg-gray-200 text-gray-600 text-base font-semibold">{avatarInitial}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-base font-semibold text-gray-800 leading-tight">Zahra</p>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">SISWA</p>
+                <p className="text-base font-semibold text-gray-800 leading-tight">{displayName}</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">{displayRole}</p>
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onClick={() => {
-                console.log('Logout clicked')
-              }}
+              onClick={handleLogout}
               variant="destructive"
             >
               <LogOut className="size-4" />

@@ -1,29 +1,149 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import apiClient from '@/lib/api-client';
+
+type LoginApiResponse = {
+  success: boolean;
+  message: string;
+  token?: string;
+  access_token?: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    username: string;
+    role: string;
+    role_label: string;
+    is_active: boolean;
+  };
+  data?: {
+    user?: {
+      id: number;
+      name: string;
+      email: string;
+      username: string;
+      role: string;
+      role_label: string;
+      is_active: boolean;
+    };
+    token?: string;
+    access_token?: string;
+  };
+};
+
+function setCookie(name: string, value: string, maxAgeSeconds = 60 * 60 * 24 * 7) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax`;
+}
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const loginInFlightRef = useRef(false);
+
+  const performLoginRequest = async (normalizedEmail: string, rawPassword: string) => {
+    const loginEndpoints = ['auth/user/login'];
+    let lastError: unknown;
+
+    for (const endpoint of loginEndpoints) {
+      try {
+        const response = await apiClient.post<LoginApiResponse>(endpoint, {
+          email: normalizedEmail,
+          password: rawPassword,
+        });
+
+        return response;
+      } catch (error: any) {
+        lastError = error;
+
+        // Coba endpoint fallback hanya jika endpoint pertama gagal.
+        if (endpoint !== loginEndpoints[loginEndpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+
+    throw lastError;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate submit while a request is still in flight.
+    if (loginInFlightRef.current) {
+      return;
+    }
+
+    loginInFlightRef.current = true;
+    setErrorMessage('');
     setIsLoading(true);
-    // Simulate login delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    console.log('Login attempt:', { username, password });
+
+    try {
+      const normalizedEmail = email.trim();
+      const response = await performLoginRequest(normalizedEmail, password);
+
+      const payload = response.data;
+
+      if (!payload.success) {
+        setErrorMessage(payload.message || 'Login gagal');
+        return;
+      }
+
+      const token = payload.data?.token || payload.token || payload.data?.access_token || payload.access_token;
+      const user = payload.data?.user || payload.user;
+
+      if (!token) {
+        setErrorMessage('Login gagal: token tidak ditemukan pada response backend.');
+        return;
+      }
+
+      setCookie('auth_token', token);
+
+      if (user) {
+        setCookie('auth_user', JSON.stringify(user));
+      }
+
+      const role = (user?.role || user?.role_label || '').toLowerCase();
+
+      const redirectUrl = role === 'admin' || role === 'guru' ? '/admin/dashboard' : '/dashboard';
+
+      window.location.href = redirectUrl;
+    } catch (error: any) {
+      const responseMessage = error?.response?.data?.message;
+      const validationErrors = error?.response?.data?.errors;
+      const status = error?.response?.status;
+
+      let message = responseMessage;
+      if (validationErrors && typeof validationErrors === 'object') {
+        const firstError = Object.values(validationErrors)
+          .flat()
+          .find((item) => typeof item === 'string');
+        if (firstError) {
+          message = firstError as string;
+        }
+      }
+
+      if (!message && status === 401) {
+        message = 'Email atau password salah.';
+      }
+
+      setErrorMessage(message || 'Login gagal. Periksa email/password atau koneksi backend.');
+    } finally {
+      setIsLoading(false);
+      loginInFlightRef.current = false;
+    }
   };
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-blue-50 to-slate-50 p-4 sm:p-8">
       {/* Card Container */}
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row lg:min-h-[640px]">
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row lg:min-h-160">
         {/* Left Side - Image */}
         <div className="hidden lg:block lg:w-1/2 shrink-0 overflow-hidden self-stretch">
           <img
@@ -57,18 +177,25 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-6">
-            {/* Username Field */}
+            {errorMessage && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Email Field */}
             <div className="space-y-3">
-              <label htmlFor="username" className="text-sm font-semibold text-slate-700">
-                Username
+              <label htmlFor="email" className="text-sm font-semibold text-slate-700">
+                Email
               </label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="h-12 px-4 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-0 placeholder-slate-400"
+                disabled={isLoading}
                 required
               />
             </div>
@@ -86,6 +213,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-12 px-4 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-0 placeholder-slate-400 pr-12"
+                  disabled={isLoading}
                   required
                 />
                 <button
@@ -93,6 +221,7 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-600 transition"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  disabled={isLoading}
                 >
                   {showPassword ? (
                     <EyeOffIcon size={20} />

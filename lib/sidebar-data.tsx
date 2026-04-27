@@ -32,12 +32,12 @@ export const adminMenuCategories: MenuCategory[] = [
       {
         icon: Target,
         label: 'PBL',
-        path: '/admin',
+        path: '/admin/pbl',
       },
       {
         icon: FileText,
         label: 'Assesmen',
-        path: '/admin',
+        path: '/admin/assesmen',
       },
     ],
   },
@@ -47,7 +47,12 @@ export const adminMenuCategories: MenuCategory[] = [
       {
         icon: GraduationCap,
         label: 'Guru',
-        path: '/admin',
+        path: '/admin/guru',
+      },
+            {
+        icon: GraduationCap,
+        label: 'Siswa',
+        path: '/admin/siswa',
       },
     ],
   },

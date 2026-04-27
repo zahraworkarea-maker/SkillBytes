@@ -1,6 +1,8 @@
 'use client'
 
-import React from 'react'
+import { useEffect, useState } from 'react'
+import { Viewer, Worker } from '@react-pdf-viewer/core'
+import '@react-pdf-viewer/core/lib/styles/index.css'
 
 interface PDFViewerProps {
   pdfUrl?: string
@@ -8,34 +10,49 @@ interface PDFViewerProps {
 }
 
 export function PDFViewer({ pdfUrl, fileName = 'materi.pdf' }: PDFViewerProps) {
-  // Convert public path to API route
-  const apiUrl = pdfUrl?.startsWith('/materi/') 
-    ? `/api/pdf?file=${encodeURIComponent(pdfUrl.replace(/^\//, ''))}` 
-    : pdfUrl
+  const [fileBlob, setFileBlob] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!pdfUrl) return
+
+    const fetchPdf = async () => {
+      try {
+        setLoading(true)
+
+        const res = await fetch(pdfUrl)
+        const blob = await res.blob()
+
+        const url = URL.createObjectURL(blob)
+        setFileBlob(url)
+      } catch (err) {
+        console.error('Failed to load PDF:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPdf()
+
+    return () => {
+      if (fileBlob) URL.revokeObjectURL(fileBlob)
+    }
+  }, [pdfUrl])
 
   if (!pdfUrl) {
-    return (
-      <div className="w-full h-150 bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-dashed border-blue-200 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="w-24 h-24 bg-blue-100 rounded-lg flex items-center justify-center">
-              <span className="text-4xl">📁</span>
-            </div>
-          </div>
-          <h3 className="text-xl font-semibold text-slate-700 mb-2">Belum Ada Materi yang Tersedia</h3>
-          <p className="text-slate-500">File materi akan ditampilkan di sini</p>
-        </div>
-      </div>
-    )
+    return <div>Tidak ada file PDF</div>
+  }
+
+  if (loading) {
+    return <div>Memuat konten...</div>
   }
 
   return (
-    <div className="w-full border border-slate-200 rounded-lg overflow-hidden bg-white">
-      <iframe
-        src={apiUrl}
-        className="w-full h-screen border-none"
-        title={fileName}
-      />
+    <div className="w-full h-[80vh]">
+      {/* 🔥 WAJIB: SET WORKER */}
+      <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+        {fileBlob && <Viewer fileUrl={fileBlob} />}
+      </Worker>
     </div>
   )
 }

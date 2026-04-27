@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
+import { Lock, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Lesson } from '@/lib/materi-data'
 
@@ -38,7 +38,15 @@ export function CourseCard({ lesson, courseId, levelNumber, isLocked = false, in
           <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-2 line-clamp-2">
             {lesson.title}
           </h3>
-          <p className="text-xs md:text-sm text-gray-500 line-clamp-2">{lesson.description}</p>
+          <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{lesson.description}</p>
+
+          {/* Badge Selesai Dibaca */}
+          {lesson.completed && (
+            <div className="flex items-center gap-1 mt-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <span className="text-xs font-semibold text-green-600">Selesai Dibaca</span>
+            </div>
+          )}
 
           {/* Button - Bottom Right Corner */}
           <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4">

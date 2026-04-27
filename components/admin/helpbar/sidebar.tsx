@@ -114,7 +114,7 @@ const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => v
             <AvatarFallback>EC</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900">Ember Crest</p>
+            <p className="text-sm font-medium text-gray-900">Zahra Humaira</p>
           </div>
           <Button
             variant="ghost"
