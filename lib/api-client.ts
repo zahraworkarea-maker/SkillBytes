@@ -33,52 +33,100 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax`;
 }
 
-// Create axios instance dengan base URL dari environment variable
+// Create axios instance - JANGAN set default Content-Type
 const apiClient: AxiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-  withCredentials: true, // Penting untuk Laravel Sanctum
+  withCredentials: true,
   headers: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json',
+    // ❌ HAPUS Content-Type dari sini
   },
 });
 
-// Interceptor untuk menambahkan token ke setiap request
+// Interceptor request
 apiClient.interceptors.request.use(
   (config) => {
     const token = getCookie('auth_token');
 
-    // Do not attach stale bearer token to public auth endpoints.
-    if (token && !isPublicAuthRequest(config.url)) {
-      console.log('[AXIOS] Attaching token to request:', config.url);
-      config.headers.Authorization = `Bearer ${token}`;
-    } else if (token && isPublicAuthRequest(config.url)) {
-      console.log('[AXIOS] Skipping token for public auth request:', config.url);
+    // ✅ FIX 1: Ensure headers object exists
+    if (!config.headers) {
+      config.headers = {} as any;
     }
+
+    // ✅ FIX 2: Handle FormData - HARUS LEBIH DULU
+    if (config.data instanceof FormData) {
+      console.log('[AXIOS] FormData detected - allowing browser to set multipart/form-data');
+      // ✅ FIX 3: Completely remove Content-Type header untuk FormData
+      delete config.headers['Content-Type'];
+      
+      // Debug: log FormData contents
+      const entries: any[] = [];
+      config.data.forEach((value: any, key: string) => {
+        if (value instanceof File) {
+          entries.push(`${key}: File(${value.name}, ${value.size} bytes)`);
+        } else {
+          entries.push(`${key}: ${value}`);
+        }
+      });
+      console.log('[AXIOS] FormData entries:', entries);
+    } else {
+      // ✅ FIX 4: Only set Content-Type for JSON
+      config.headers['Content-Type'] = 'application/json';
+    }
+
+    // ✅ FIX 5: Add token
+    if (token && !isPublicAuthRequest(config.url)) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('[AXIOS] Token attached to request:', config.url);
+    }
+
+    // Debug log
+    console.log('[AXIOS] Request config:', {
+      url: config.url,
+      method: config.method,
+      hasFormData: config.data instanceof FormData,
+      contentType: config.headers['Content-Type'],
+      hasAuth: !!config.headers['Authorization'],
+    });
 
     return config;
   },
   (error) => {
+    console.error('[AXIOS] Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Interceptor untuk handle response errors
+// Interceptor response
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('[AXIOS] Response success:', {
+      url: response.config.url,
+      status: response.status,
+    });
+    return response;
+  },
   (error: AxiosError) => {
     const url = error.config?.url;
     const status = error.response?.status;
 
-    console.log('[AXIOS] Response error:', { url, status, message: (error.response?.data as any)?.message });
+    console.error('[AXIOS] Response error:', {
+      url,
+      status,
+      message: (error.response?.data as any)?.message,
+    });
 
-    // Jika 401 Unauthorized, redirect ke login untuk request selain login.
+    // Handle 401
     if (status === 401 && !isPublicAuthRequest(url)) {
-      console.log('[AXIOS] 401 detected. Clearing auth and redirecting to login.');
+      console.log('[AXIOS] 401 Unauthorized - clearing cookies and redirecting');
       clearCookie('auth_token');
       clearCookie('auth_user');
-      window.location.href = '/';
+      
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     }
+
     return Promise.reject(error);
   }
 );

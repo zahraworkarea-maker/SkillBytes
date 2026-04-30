@@ -2,8 +2,8 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LogOut } from 'lucide-react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { LogOut, User } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -24,6 +24,9 @@ export function Navbar() {
   const displayName = user?.name || 'User'
   const displayRole = (user?.role_label || user?.role || '-').toUpperCase()
   const avatarInitial = displayName.charAt(0).toUpperCase()
+  const profilePhotoUrl = user?.profile_photo_url
+    ? `${'http://localhost:8000'}${user.profile_photo_url}`
+    : null
 
   const handleLogout = async () => {
     await logout()
@@ -87,6 +90,9 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
               <Avatar className="w-9 h-9">
+                {profilePhotoUrl && (
+                  <AvatarImage src={profilePhotoUrl} alt={displayName} />
+                )}
                 <AvatarFallback className="bg-gray-200 text-gray-600 text-base font-semibold">{avatarInitial}</AvatarFallback>
               </Avatar>
               <div>
@@ -96,6 +102,10 @@ export function Navbar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push('/profile')}>
+              <User className="size-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleLogout}
               variant="destructive"

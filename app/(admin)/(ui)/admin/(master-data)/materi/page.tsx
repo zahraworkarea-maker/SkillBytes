@@ -1,14 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, BookOpen, Upload, X } from 'lucide-react'
-import { materiData, DifficultyLevel } from '@/lib/materi-data'
+import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, BookOpen, Upload, X, Loader } from 'lucide-react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,8 +18,15 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import { toast } from 'react-toastify'
+import apiClient from '@/lib/api-client'
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024 // 1 MB
+type DifficultyLevel = '1' | '2' | '3'
+
+interface LevelMapping {
+  level_number: number
+  level_id: number
+}
 
 const validatePdfFile = (file: File): { valid: boolean; error?: string } => {
   // Check file extension
@@ -42,37 +48,70 @@ const validatePdfFile = (file: File): { valid: boolean; error?: string } => {
 }
 
 export default function MateriManagementPage() {
-  const allLessons = materiData.flatMap(course =>
-    course.levels.flatMap(level =>
-      level.lessons.map(lesson => ({
-        ...lesson,
-        courseTitle: course.title,
-        levelNumber: level.levelNumber,
-      }))
-    )
-  )
-  const [lessons, setLessons] = useState(allLessons)
+  const [lessons, setLessons] = useState<any[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingLesson, setEditingLesson] = useState<any | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [levelMappings, setLevelMappings] = useState<LevelMapping[]>([])
   const [formData, setFormData] = useState({
     title: '',
-    difficulty: '1' as DifficultyLevel,
+    level_id: '' as string,
+    level_number: '1' as DifficultyLevel,
     duration: '',
     pdfFile: null as File | null,
     pdfUrl: '',
     description: '',
   })
 
+  // Fetch data from API on component mount
+  useEffect(() => {
+    fetchLessons()
+  }, [])
+
+  const fetchLessons = async () => {
+    try {
+      setIsLoading(true)
+      // Fetch dari /levels/all untuk mendapatkan lessons yang grouped by level
+      const response = await apiClient.get('/levels/all')
+      const levels = response.data.data || []
+      
+      // Buat mapping level_number ke level_id
+      const mappings = levels.map((level: any) => ({
+        level_number: level.level_number,
+        level_id: level.id,
+      }))
+      setLevelMappings(mappings)
+      
+      // Flatten lessons dari semua levels, tambahkan level_number dan level_id ke setiap lesson
+      const flattenedLessons = levels.flatMap((level: any) => 
+        level.lessons.map((lesson: any) => ({
+          ...lesson,
+          level_number: level.level_number,
+          level_id: level.id,
+        }))
+      )
+      
+      setLessons(flattenedLessons)
+    } catch (error: any) {
+      console.error('Error fetching lessons:', error)
+      toast.error('Gagal mengambil data materi')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleEdit = (lesson: any) => {
     setEditingLesson(lesson)
     setFormData({
       title: lesson.title,
-      difficulty: lesson.difficulty,
+      level_id: lesson.level_id?.toString() || levelMappings[0]?.level_id.toString() || '',
+      level_number: lesson.level_number?.toString() || '1',
       duration: lesson.duration || '',
       pdfFile: null,
-      pdfUrl: lesson.pdfUrl || '',
+      pdfUrl: lesson.pdf_url || '',
       description: lesson.description || '',
     })
     setIsDialogOpen(true)
@@ -80,9 +119,11 @@ export default function MateriManagementPage() {
 
   const handleAdd = () => {
     setEditingLesson(null)
+    const firstLevelId = levelMappings[0]?.level_id.toString() || ''
     setFormData({
       title: '',
-      difficulty: '1',
+      level_id: firstLevelId,
+      level_number: '1',
       duration: '',
       pdfFile: null,
       pdfUrl: '',
@@ -91,7 +132,7 @@ export default function MateriManagementPage() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (slug: string) => {
     const Swal = (await import('sweetalert2')).default
     const result = await Swal.fire({
       title: 'Konfirmasi Hapus',
@@ -105,47 +146,60 @@ export default function MateriManagementPage() {
     })
 
     if (result.isConfirmed) {
-      setLessons(lessons.filter(lesson => lesson.id !== id))
-      toast.success('Materi berhasil dihapus!')
+      try {
+        await apiClient.delete(`/lessons/${slug}`)
+        setLessons(lessons.filter(lesson => lesson.slug !== slug))
+        toast.success('Materi berhasil dihapus!')
+      } catch (error: any) {
+        console.error('Error deleting lesson:', error)
+        toast.error(error.response?.data?.message || 'Gagal menghapus materi')
+      }
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingLesson) {
-      // Edit tanpa konfirmasi
-      setLessons(lessons.map(lesson =>
-        lesson.id === editingLesson.id
-          ? { 
-              ...lesson,
-              title: formData.title,
-              difficulty: formData.difficulty,
-              duration: formData.duration,
-              pdfUrl: formData.pdfUrl,
-              description: formData.description,
-            }
-          : lesson
-      ))
-      toast.success('Materi berhasil diedit!')
-      setIsDialogOpen(false)
-    } else {
-      // Add tanpa konfirmasi
-      const newLesson: any = {
-        id: Date.now().toString(),
-        title: formData.title,
-        difficulty: formData.difficulty,
-        duration: formData.duration,
-        pdfUrl: formData.pdfUrl,
-        description: formData.description,
-        icon: BookOpen, // Default icon
-        completed: false,
-        courseTitle: 'Pemrograman Berorientasi Objek', // Default course
-        levelNumber: 1, // Default level
+    if (!formData.title.trim()) {
+      toast.error('Judul materi tidak boleh kosong!')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const submitData = new FormData()
+      
+      submitData.append('title', formData.title)
+      submitData.append('description', formData.description)
+      submitData.append('duration', formData.duration)
+      submitData.append('level_id', formData.level_id) // Kirim level_id ke backend
+      
+      if (formData.pdfFile) {
+        submitData.append('pdf_file', formData.pdfFile)
       }
-      setLessons([...lessons, newLesson])
-      toast.success('Materi berhasil ditambahkan!')
+
+      if (editingLesson) {
+        // Update existing lesson
+        await apiClient.put(`/lessons/${editingLesson.slug}`, submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        toast.success('Materi berhasil diperbarui!')
+      } else {
+        // Create new lesson
+        await apiClient.post('/lessons', submitData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        toast.success('Materi berhasil ditambahkan!')
+      }
+
       setIsDialogOpen(false)
+      await fetchLessons() // Refresh list
+    } catch (error: any) {
+      console.error('Error saving lesson:', error)
+      const errorMessage = error.response?.data?.message || 'Gagal menyimpan materi'
+      toast.error(errorMessage)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -182,9 +236,15 @@ export default function MateriManagementPage() {
     {
       accessorKey: 'duration',
       header: 'Durasi',
+      cell: ({ getValue }) => {
+        const duration = getValue<string>()
+        // Remove "menit" jika sudah ada, untuk mencegah double
+        const cleanDuration = duration?.replace(/\s*menit\s*/gi, '').trim() || '0'
+        return <span>{cleanDuration} menit</span>
+      },
     },
     {
-      accessorKey: 'levelNumber',
+      accessorKey: 'level_number',
       header: 'Level',
       cell: ({ getValue }) => {
         const level = getValue() as number
@@ -214,7 +274,7 @@ export default function MateriManagementPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleDelete(row.original.id)}
+            onClick={() => handleDelete(row.original.slug)}
             className="border-red-300 hover:bg-red-50 hover:border-red-400 text-red-600 hover:text-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Trash2 className="h-4 w-4" />
@@ -244,7 +304,11 @@ export default function MateriManagementPage() {
         <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
           Kelola Materi
         </h1>
-        <Button onClick={handleAdd} className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <Button 
+          onClick={handleAdd} 
+          disabled={isLoading || isSaving}
+          className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Plus className="mr-2 h-5 w-5" />
           Tambah Materi
         </Button>
@@ -258,53 +322,64 @@ export default function MateriManagementPage() {
             placeholder="Cari materi..."
             value={globalFilter ?? ''}
             onChange={(event) => setGlobalFilter(String(event.target.value))}
-            className="pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 bg-white/80 backdrop-blur-sm shadow-sm"
+            disabled={isLoading}
+            className="pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 bg-white/80 backdrop-blur-sm shadow-sm disabled:opacity-50"
           />
         </div>
       </div>
 
-      <Table className="border-2 border-blue-200 rounded-2xl overflow-hidden shadow-2xl bg-white/90 backdrop-blur-sm">
-        <TableHeader className="bg-linear-to-r from-blue-600 to-blue-700">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-blue-500/10 transition-colors duration-200">
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className="text-white font-bold py-5 px-6 text-left">
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row, index) => (
-              <TableRow
-                key={row.id}
-                className={`hover:bg-linear-to-r hover:from-blue-50 hover:to-blue-25 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-md ${
-                  index % 2 === 0 ? 'bg-white' : 'bg-blue-25/50'
-                }`}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-5 px-6 text-gray-700 font-medium">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center space-y-3">
+            <Loader className="h-8 w-8 text-blue-600 animate-spin" />
+            <p className="text-blue-600 font-medium">Memuat data materi...</p>
+          </div>
+        </div>
+      ) : (
+        <Table className="border-2 border-blue-200 rounded-2xl overflow-hidden shadow-2xl bg-white/90 backdrop-blur-sm">
+          <TableHeader className="bg-linear-to-r from-blue-600 to-blue-700">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-blue-500/10 transition-colors duration-200">
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="text-white font-bold py-5 px-6 text-left">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-32 text-center text-blue-600 py-12 text-lg font-medium">
-                <div className="flex flex-col items-center space-y-2">
-                  <Search className="h-8 w-8 text-blue-300" />
-                  <span>Tidak ada data yang ditemukan</span>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  className={`hover:bg-linear-to-r hover:from-blue-50 hover:to-blue-25 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-md ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-blue-25/50'
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="py-5 px-6 text-gray-700 font-medium">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-32 text-center text-blue-600 py-12 text-lg font-medium">
+                  <div className="flex flex-col items-center space-y-2">
+                    <Search className="h-8 w-8 text-blue-300" />
+                    <span>Tidak ada data yang ditemukan</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="border-2 border-blue-200 bg-white/95 backdrop-blur-sm shadow-2xl">
@@ -318,6 +393,7 @@ export default function MateriManagementPage() {
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                disabled={isSaving}
                 required
               />
             </div>
@@ -328,20 +404,32 @@ export default function MateriManagementPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Masukkan deskripsi materi..."
+                disabled={isSaving}
               />
             </div>
             <div>
-              <Label htmlFor="difficulty">Tingkat Kesulitan</Label>
+              <Label htmlFor="level_id">Tingkat Level</Label>
               <select
-                id="difficulty"
-                value={formData.difficulty}
-                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as DifficultyLevel })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                id="level_id"
+                value={formData.level_id}
+                onChange={(e) => {
+                  const selectedId = e.target.value
+                  const mapping = levelMappings.find(m => m.level_id.toString() === selectedId)
+                  setFormData({ 
+                    ...formData, 
+                    level_id: selectedId,
+                    level_number: (mapping?.level_number.toString() || '1') as DifficultyLevel
+                  })
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSaving}
                 required
               >
-                <option value="1">Level 1</option>
-                <option value="2">Level 2</option>
-                <option value="3">Level 3</option>
+                {levelMappings.map((mapping) => (
+                  <option key={mapping.level_id} value={mapping.level_id}>
+                    Level {mapping.level_number}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -350,14 +438,16 @@ export default function MateriManagementPage() {
                 id="duration"
                 value={formData.duration}
                 onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                placeholder="e.g. 25 Menit"
+                placeholder="contoh : 25 (dalam hitngan menit)"
+                disabled={isSaving}
               />
             </div>
             <div>
               <Label htmlFor="pdfFile">File PDF</Label>
               <div
-                className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+                className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 onDrop={(e) => {
+                  if (isSaving) return
                   e.preventDefault()
                   const files = e.dataTransfer.files
                   if (files.length > 0) {
@@ -371,7 +461,7 @@ export default function MateriManagementPage() {
                   }
                 }}
                 onDragOver={(e) => e.preventDefault()}
-                onClick={() => document.getElementById('pdfFileInput')?.click()}
+                onClick={() => !isSaving && document.getElementById('pdfFileInput')?.click()}
               >
                 {formData.pdfFile ? (
                   <div className="flex items-center justify-between">
@@ -388,7 +478,8 @@ export default function MateriManagementPage() {
                         e.stopPropagation()
                         setFormData({ ...formData, pdfFile: null })
                       }}
-                      className="text-red-600 hover:text-red-700"
+                      disabled={isSaving}
+                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -417,15 +508,27 @@ export default function MateriManagementPage() {
                     }
                   }
                 }}
+                disabled={isSaving}
                 className="hidden"
               />
             </div>
 
             <div className="flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-blue-300 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-all duration-200">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)} 
+                disabled={isSaving}
+                className="border-blue-300 hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Batal
               </Button>
-              <Button type="submit" className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <Button 
+                type="submit" 
+                disabled={isSaving}
+                className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSaving && <Loader className="h-4 w-4 animate-spin" />}
                 {editingLesson ? 'Simpan' : 'Tambah'}
               </Button>
             </div>

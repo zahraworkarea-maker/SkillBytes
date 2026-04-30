@@ -25,7 +25,7 @@ export const authService = {
    */
   async initializeCsrf() {
     try {
-      await apiClient.get('/api/csrf-token');
+      await apiClient.get('/csrf-token');
     } catch (error) {
       console.error('Failed to initialize CSRF:', error);
     }
@@ -36,7 +36,7 @@ export const authService = {
    */
   async login(email: string, password: string) {
     try {
-      const response = await apiClient.post('auth/user/login', {
+      const response = await apiClient.post('/auth/user/login', {
         email,
         password,
       });
@@ -62,7 +62,7 @@ export const authService = {
     password_confirmation: string;
   }) {
     try {
-      const response = await apiClient.post('/api/register', data);
+      const response = await apiClient.post('/auth/user/register', data);
       
       if (response.data.token) {
         setCookie('auth_token', response.data.token);
@@ -88,7 +88,7 @@ export const authService = {
    */
   async getCurrentUser() {
     try {
-      const response = await apiClient.get('/api/user');
+      const response = await apiClient.get('/auth/user');
       return response.data;
     } catch (error) {
       throw error;
@@ -100,7 +100,7 @@ export const authService = {
    */
   async getUserById(id: number | string) {
     try {
-      const response = await apiClient.get(`auth/user/${id}`);
+      const response = await apiClient.get(`/auth/user/${id}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -116,7 +116,7 @@ export const userService = {
    */
   async getAllUsers() {
     try {
-      const response = await apiClient.get('/api/users');
+      const response = await apiClient.get('/auth/user/all');
       return response.data;
     } catch (error) {
       throw error;
@@ -128,7 +128,7 @@ export const userService = {
    */
   async getUserById(id: number | string) {
     try {
-      const response = await apiClient.get(`/api/users/${id}`);
+      const response = await apiClient.get(`/auth/user/${id}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -136,11 +136,11 @@ export const userService = {
   },
 
   /**
-   * Update user data
+   * Update user data (profile photo, etc)
    */
   async updateUser(id: number | string, data: Record<string, any>) {
     try {
-      const response = await apiClient.put(`/api/users/${id}`, data);
+      const response = await apiClient.post(`/auth/user/${id}`, data);
       return response.data;
     } catch (error) {
       throw error;
@@ -152,7 +152,7 @@ export const userService = {
    */
   async deleteUser(id: number | string) {
     try {
-      const response = await apiClient.delete(`/api/users/${id}`);
+      const response = await apiClient.delete(`/auth/user/${id}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -169,7 +169,7 @@ export const courseService = {
    */
   async getAllCourses() {
     try {
-      const response = await apiClient.get('/api/courses');
+      const response = await apiClient.get('/courses');
       return response.data;
     } catch (error) {
       throw error;
@@ -181,7 +181,7 @@ export const courseService = {
    */
   async getCourseById(id: number | string) {
     try {
-      const response = await apiClient.get(`/api/courses/${id}`);
+      const response = await apiClient.get(`/courses/${id}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -195,7 +195,7 @@ export const assessmentService = {
    */
   async getAllAssessments() {
     try {
-      const response = await apiClient.get('/api/assessments');
+      const response = await apiClient.get('/assessments');
       return response.data;
     } catch (error) {
       throw error;
@@ -207,7 +207,7 @@ export const assessmentService = {
    */
   async getAssessmentById(id: number | string) {
     try {
-      const response = await apiClient.get(`/api/assessments/${id}`);
+      const response = await apiClient.get(`/assessments/${id}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -219,7 +219,7 @@ export const assessmentService = {
    */
   async submitAssessment(id: number | string, answers: Record<string, any>) {
     try {
-      const response = await apiClient.post(`/api/assessments/${id}/submit`, answers);
+      const response = await apiClient.post(`/assessments/${id}/submit`, answers);
       return response.data;
     } catch (error) {
       throw error;
