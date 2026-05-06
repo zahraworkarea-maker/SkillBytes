@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -180,7 +180,7 @@ export default function MateriManagementPage() {
 
       if (editingLesson) {
         // Update existing lesson
-        await apiClient.put(`/lessons/${editingLesson.slug}`, submitData, {
+        await apiClient.post(`/lessons/${editingLesson.slug}`, submitData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
         toast.success('Materi berhasil diperbarui!')
@@ -385,6 +385,9 @@ export default function MateriManagementPage() {
         <DialogContent className="border-2 border-blue-200 bg-white/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader className="border-b-2 border-blue-200 pb-4">
             <DialogTitle className="text-blue-900 text-xl font-bold">{editingLesson ? 'Edit Materi' : 'Tambah Materi'}</DialogTitle>
+            <DialogDescription>
+              {editingLesson ? 'Ubah informasi materi di bawah ini' : 'Tambahkan materi baru dengan mengisi form di bawah ini'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
