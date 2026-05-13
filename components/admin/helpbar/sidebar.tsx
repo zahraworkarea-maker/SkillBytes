@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
 import {
   HelpCircle,
@@ -16,9 +16,31 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 import { adminMenuCategories, MenuCategory, MenuItem } from '@/lib/sidebar-data';
+import { useAuth } from '@/hooks/use-auth';
 
 const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) => {
-  const menuCategories: MenuCategory[] = adminMenuCategories;
+  const { user } = useAuth();
+
+  // Filter menu categories based on user role
+  const menuCategories: MenuCategory[] = useMemo(() => {
+    return adminMenuCategories.map((category) => {
+      // Filter items in the SETTINGS category
+      if (category.title === 'SETTINGS') {
+        const filteredItems = category.items.filter((item) => {
+          // Only show "Guru" item if user is admin
+          if (item.label === 'Guru') {
+            return user?.role === 'admin' || user?.role_label === 'admin';
+          }
+          return true;
+        });
+        return {
+          ...category,
+          items: filteredItems,
+        };
+      }
+      return category;
+    });
+  }, [user?.role, user?.role_label]);
 
   return (
     <div className={`flex flex-col h-screen w-80 bg-white border-r border-gray-200 fixed left-0 top-0 z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>

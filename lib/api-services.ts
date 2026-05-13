@@ -507,3 +507,37 @@ export const pblService = {
     }
   },
 };
+
+// ============= Generic API Handler =============
+
+/**
+ * Generic API handler function for making requests
+ * Used by services that need flexibility with request configuration
+ * @param url - The endpoint URL
+ * @param config - Request configuration (method, params, data, headers, etc)
+ * @returns Promise with response data
+ */
+export const apiHandler = async (url: string, config: any = {}) => {
+  try {
+    const method = (config.method || 'GET').toUpperCase();
+    
+    switch (method) {
+      case 'GET':
+        return await apiClient.get(url, { params: config.params });
+      case 'POST':
+        return await apiClient.post(url, config.data, { 
+          headers: config.headers 
+        });
+      case 'PUT':
+        return await apiClient.put(url, config.data, { 
+          headers: config.headers 
+        });
+      case 'DELETE':
+        return await apiClient.delete(url);
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
+    }
+  } catch (error) {
+    throw error;
+  }
+};
