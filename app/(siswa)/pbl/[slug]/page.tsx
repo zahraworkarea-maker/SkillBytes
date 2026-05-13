@@ -2,166 +2,39 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, Clock, CheckCircle2, AlertCircle, Upload, X } from 'lucide-react';
+import { ArrowLeft, Play, Clock, CheckCircle2, AlertCircle, Upload, X, Loader } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { pblCasesData } from '@/lib/pbl-data';
-import Dropzone from 'dropzone';
-import 'dropzone/dist/dropzone.css';
+import { usePBLCase } from '@/hooks/use-pbl-case';
+import { pblService } from '@/lib/api-services';
 import styles from './pbl-content.module.css';
-
-interface PBLCase {
-  id: string;
-  caseNumber: number;
-  title: string;
-  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert' | 'Master';
-  description: string;
-  content: string;
-  timeLimit: number; // in minutes
-  isCompleted: boolean;
-  startDate: string;
-  deadline: string;
-  status: 'not-started' | 'in-progress' | 'completed';
-}
-
-// Fallback data if lib/pbl-data doesn't exist
-const fallbackPBLData: Record<string, PBLCase> = {
-  'case-01': {
-    id: 'case-01',
-    caseNumber: 1,
-    title: 'System Login Bermasalah',
-    level: 'Beginner',
-    description: 'Analisis masalah pada sistem login aplikasi',
-    content: `<div class="space-y-4">
-      <p>Sebuah perusahaan mengalami masalah pada sistem login aplikasinya di mana pengguna tidak dapat mengakses aplikasi. Beberapa pengguna melaporkan error saat input username-password yang benar.</p>
-      
-      <div class="bg-blue-50 border-l-4 border-blue-400 p-4 my-4">
-        <h4 class="font-semibold text-blue-900 mb-2">Masalah yang Dihadapi:</h4>
-        <ul class="list-disc list-inside text-blue-800 space-y-2">
-          <li>Beberapa pengguna tidak bisa login meskipun kredensial benar</li>
-          <li>Aplikasi sering crash ketika proses login</li>
-          <li>Error message tidak jelas atau tidak muncul</li>
-          <li>Loading time login sangat lama</li>
-        </ul>
-      </div>
-
-      <h4 class="font-semibold">Sebagai seorang Frontend Developer (Junior):</h4>
-      <p>Tugasmu adalah memperbaiki bagian input halaman login agar pengguna dapat mengakses aplikasi dengan benar. Fokus pada:</p>
-      
-      <ul class="list-disc list-inside space-y-2 text-slate-700">
-        <li>Validasi input form yang lebih baik</li>
-        <li>Error handling yang jelas</li>
-        <li>User experience yang lebih baik</li>
-        <li>Security considerations</li>
-      </ul>
-    </div>`,
-    timeLimit: 180,
-    isCompleted: false,
-    startDate: '2024-04-01',
-    deadline: '2024-04-20',
-    status: 'in-progress',
-  },
-  'case-02': {
-    id: 'case-02',
-    caseNumber: 2,
-    title: 'Dashboard Performance',
-    level: 'Intermediate',
-    description: 'Optimasi performa dashboard yang lambat',
-    content: `<div class="space-y-4">
-      <p>Dashboard aplikasi mengalami performa yang buruk ketika menampilkan data dalam jumlah besar.</p>
-      
-      <div class="bg-amber-50 border-l-4 border-amber-400 p-4 my-4">
-        <h4 class="font-semibold text-amber-900 mb-2">Tantangan:</h4>
-        <ul class="list-disc list-inside text-amber-800 space-y-2">
-          <li>Loading time dashboard > 5 detik</li>
-          <li>Chart scroll sangat lambat</li>
-          <li>Memory usage tinggi</li>
-          <li>Tidak responsive pada device rendah</li>
-        </ul>
-      </div>
-
-      <p>Identifikasi bottleneck dan optimalkan dashboard untuk performa yang lebih baik.</p>
-    </div>`,
-    timeLimit: 240,
-    isCompleted: true,
-    startDate: '2024-03-15',
-    deadline: '2024-04-05',
-    status: 'completed',
-  },
-};
+import { PBLCase, PBLStatus } from '@/lib/types/pbl.types';
 
 export default function PBLDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
-  const [caseData, setCaseData] = useState<PBLCase | null>(null);
+  
+  // Fetch data from backend
+  const { caseData, sections, loading, error } = usePBLCase(slug);
+  
   const [isStarted, setIsStarted] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Try to load from pbl-data, fallback to fallbackData
-    try {
-      const data = pblCasesData[slug] || fallbackPBLData[slug];
-      if (data) {
-        setCaseData(data);
-        // Check if case was already started
-        const savedStatus = localStorage.getItem(`pbl_${slug}_started`);
-        if (savedStatus) {
-          setIsStarted(true);
-        }
-      }
-    } catch (error) {
-      const data = fallbackPBLData[slug];
-      if (data) {
-        setCaseData(data);
+    // Check if case was already started
+    if (caseData) {
+      const savedStatus = localStorage.getItem(`pbl_${slug}_started`);
+      if (savedStatus) {
+        setIsStarted(true);
       }
     }
-  }, [slug]);
-
-  // Initialize Dropzone
-  useEffect(() => {
-    if (dropzoneRef.current && fileInputRef.current) {
-      Dropzone.autoDiscover = false;
-      
-      const dropzoneInstance = new Dropzone(dropzoneRef.current, {
-        url: '/api/pdf', // Update this to your actual upload endpoint
-        maxFilesize: 50, // MB
-        acceptedFiles: '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip',
-        previewsContainer: false,
-        autoProcessQueue: false,
-        clickable: true,
-        dictDefaultMessage: '',
-        dictFallbackMessage: 'Browser Anda tidak mendukung drag and drop file',
-        dictFileTooBig: 'File terlalu besar (@filesize MB). Maksimal: @maxFilesize MB.',
-        dictInvalidFileType: 'Tipe file tidak didukung. Format: .pdf, .doc, .docx, .txt, .xls, .xlsx, .ppt, .pptx, .zip',
-        dictResponseError: 'Server mengembalikan respons dengan kode status @status',
-        dictCancelUpload: 'Batal unggah',
-        dictUploadCanceled: 'Unggahan dibatalkan',
-        dictCancelUploadConfirmation: 'Apa Anda yakin ingin membatalkan upload ini?',
-        dictRemoveFile: 'Hapus file',
-        dictRemoveFileConfirmation: undefined,
-        dictMaxFilesExceeded: 'Anda tidak bisa mengunggah lebih banyak file',
-      });
-
-      dropzoneInstance.on('addedfile', (file: any) => {
-        setUploadedFiles((prev) => [...prev, file]);
-      });
-
-      dropzoneInstance.on('removedfile', (file: any) => {
-        setUploadedFiles((prev) => prev.filter((f) => f.name !== file.name));
-      });
-
-      dropzoneInstance.on('error', (file: any, errorMessage: string) => {
-        console.error('Upload error:', errorMessage);
-      });
-
-      return () => {
-        dropzoneInstance.destroy();
-      };
-    }
-  }, []);
+  }, [caseData, slug]);
 
   const handleRemoveFile = (fileName: string) => {
     setUploadedFiles((prev) => prev.filter((f) => f.name !== fileName));
@@ -184,6 +57,45 @@ export default function PBLDetailPage() {
       status: 'in-progress',
     }));
     setIsStarted(true);
+  };
+
+  const handleSubmitPBL = async () => {
+    if (!caseData || uploadedFiles.length === 0) {
+      setSubmitError('Silakan pilih file untuk dikumpulkan');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('case_id', caseData.id.toString());
+      
+      // Add all uploaded files
+      uploadedFiles.forEach((file) => {
+        formData.append('submission_file', file);
+      });
+
+      // Submit to backend
+      const response = await pblService.submitPBL(caseData.id, formData);
+
+      console.log('Submission response:', response);
+      setSubmitSuccess(true);
+      setUploadedFiles([]);
+
+      // Show success message
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Gagal mengirimkan jawaban';
+      setSubmitError(errorMessage);
+      console.error('Error submitting PBL:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -230,13 +142,28 @@ export default function PBLDetailPage() {
     return parts.length > 0 ? parts.join(' ') : 'Kurang dari 1 menit';
   };
 
-  if (!caseData) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Memuat PBL Case...</h1>
+          <p className="text-slate-600">Tunggu sebentar</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !caseData) {
     return (
       <div className="min-h-screen bg-slate-50 py-8">
         <div className="container mx-auto px-4">
           <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Case Tidak Ditemukan</h1>
-            <p className="text-slate-600 mb-6">Case yang Anda cari tidak tersedia</p>
+            <p className="text-slate-600 mb-6">
+              {error ? error.message : 'Case yang Anda cari tidak tersedia'}
+            </p>
             <Link href="/pbl">
               <Button>Kembali ke PBL</Button>
             </Link>
@@ -264,7 +191,7 @@ export default function PBLDetailPage() {
             Kembali
           </Link>
           <span className="text-slate-400">•</span>
-          <span className="text-slate-600">Case #{caseData.caseNumber}</span>
+          <span className="text-slate-600">Case #{caseData.case_number}</span>
         </div>
 
         {/* Main Content Grid */}
@@ -287,10 +214,12 @@ export default function PBLDetailPage() {
                 <div className="p-5 space-y-4">
                   <div>
                     <h2 className="text-lg font-bold text-slate-900 line-clamp-2 mb-2">
-                      Case #{caseData.caseNumber}
+                      Case #{caseData.case_number}
                     </h2>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${levelColors[caseData.level]}`}>
-                      {caseData.level}
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                      levelColors[caseData.pbl_level?.name] || 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {caseData.pbl_level?.name || 'Unknown'}
                     </span>
                   </div>
 
@@ -330,6 +259,7 @@ export default function PBLDetailPage() {
                           {new Date(caseData.deadline).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'long',
+                            year: 'numeric',
                           })}
                         </p>
                       </div>
@@ -359,17 +289,62 @@ export default function PBLDetailPage() {
             {/* Content Card */}
             <div className="bg-white rounded-xl shadow-md p-6 md:p-8">
               <div className={styles.contentArea}>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: caseData.content,
-                  }}
-                />
+                {sections && sections.length > 0 ? (
+                  <div className="space-y-6">
+                    {sections.map((section) => (
+                      <div key={section.id}>
+                        <h3 className="text-xl font-semibold text-slate-900 mb-4">
+                          {section.title}
+                        </h3>
+                        <div className="space-y-4">
+                          {section.items && section.items.map((item) => (
+                            <div key={item.id} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                              {item.type === 'text' && (
+                                <p className="text-slate-700 whitespace-pre-wrap">{item.content}</p>
+                              )}
+                              {item.type === 'image' && item.image_url && (
+                                <img
+                                  src={item.image_url}
+                                  alt="Section content"
+                                  className="max-w-full h-auto rounded"
+                                />
+                              )}
+                              {item.type === 'video' && item.content && (
+                                <div className="aspect-video bg-slate-900 rounded">
+                                  <iframe
+                                    src={item.content}
+                                    className="w-full h-full rounded"
+                                    allowFullScreen
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-600">Tidak ada konten untuk case ini</p>
+                )}
               </div>
             </div>
 
             {/* File Upload Section Card */}
             <div className="bg-white rounded-xl shadow-md p-6 md:p-8">
               <h3 className="text-lg font-semibold text-slate-900 mb-6">Kumpulkan Jawaban</h3>
+              
+              {submitError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 text-sm">{submitError}</p>
+                </div>
+              )}
+
+              {submitSuccess && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-700 text-sm font-medium">✓ Jawaban berhasil dikumpulkan!</p>
+                </div>
+              )}
               
               {/* Dropzone Area */}
               <div 
@@ -426,8 +401,19 @@ export default function PBLDetailPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 flex gap-3">
-                <Button className="flex-1 sm:flex-none">
-                  Jawab Case
+                <Button 
+                  onClick={handleSubmitPBL}
+                  disabled={isSubmitting || uploadedFiles.length === 0}
+                  className="flex-1 sm:flex-none"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin mr-2" />
+                      Mengirim...
+                    </>
+                  ) : (
+                    'Jawab Case'
+                  )}
                 </Button>
                 <Button variant="outline" className="flex-1 sm:flex-none">
                   Simpan Draft

@@ -345,3 +345,165 @@ export const materiService = {
     }
   },
 };
+
+// ============= PBL Services =============
+
+export const pblService = {
+  /**
+   * Get semua PBL cases dengan pagination
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 15)
+   * Response structure:
+   * {
+   *   current_page: number,
+   *   data: [
+   *     {
+   *       id: number,
+   *       slug: string,
+   *       case_number: number,
+   *       title: string,
+   *       pbl_level_id: number,
+   *       description: string,
+   *       image_url: string | null,
+   *       time_limit: number,
+   *       start_date: string,
+   *       deadline: string,
+   *       pbl_level: {
+   *         id: number,
+   *         name: string,
+   *         created_at: string,
+   *         updated_at: string
+   *       },
+   *       status: 'not-started' | 'in-progress' | 'completed'
+   *     }
+   *   ],
+   *   first_page_url: string,
+   *   from: number,
+   *   last_page: number,
+   *   last_page_url: string,
+   *   links: Array<{url: string | null, label: string, active: boolean}>,
+   *   next_page_url: string | null,
+   *   path: string,
+   *   per_page: number,
+   *   prev_page_url: string | null,
+   *   to: number,
+   *   total: number
+   * }
+   */
+  async getAllCases(page: number = 1, perPage: number = 15) {
+    try {
+      const response = await apiClient.get('/pbl-cases', {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      });
+      console.log('[PBL SERVICE] PBL cases fetched:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[PBL SERVICE] Error fetching PBL cases:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get PBL case berdasarkan ID
+   * Response includes case data with sections array
+   * @param id - Case ID
+   * @returns Case with sections included
+   * Response structure:
+   * {
+   *   "data": {
+   *     "id": 1,
+   *     "slug": "system-login-...",
+   *     "case_number": 1,
+   *     "title": "...",
+   *     "status": "completed",
+   *     "sections": [
+   *       {
+   *         "id": 1,
+   *         "title": "...",
+   *         "order": 1,
+   *         "items": [...]
+   *       }
+   *     ]
+   *   }
+   * }
+   */
+  async getCaseById(id: number | string) {
+    try {
+      const response = await apiClient.get(`/pbl-cases/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get PBL sections untuk case tertentu
+   */
+  async getSectionsByCase(caseId: number | string) {
+    try {
+      const response = await apiClient.get(`/pbl-cases/${caseId}/sections`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Submit PBL solution
+   */
+  async submitSolution(caseId: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.post(`/pbl-cases/${caseId}/submit`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Submit PBL submission with file
+   * @param caseId - Case ID
+   * @param formData - FormData with submission_file and answer
+   */
+  async submitPBL(caseId: number | string, formData: FormData) {
+    try {
+      const response = await apiClient.post(`/pbl-submissions`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get all submissions for a case
+   */
+  async getSubmissions(params?: { case_id?: number; page?: number; per_page?: number }) {
+    try {
+      const response = await apiClient.get(`/pbl-submissions`, {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get submission by ID
+   */
+  async getSubmissionById(id: number | string) {
+    try {
+      const response = await apiClient.get(`/pbl-submissions/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};

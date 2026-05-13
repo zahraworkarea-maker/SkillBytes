@@ -5,3 +5,5 @@ export { CaseCard, type CaseCardProps } from './case-card';
 export { CaseLevel, type CaseLevelProps } from './case-level';
 export { PBLContent } from './pbl-content';
 export { PBLBackground } from './pbl-background';
+export { PBLSectionForm, type PBLSectionFormData } from './pbl-section-form';
+export { PBLSectionItemForm, type PBLSectionItemFormData, type PBLSectionItemType } from './pbl-section-item-form';

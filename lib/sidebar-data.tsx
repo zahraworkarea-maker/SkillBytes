@@ -47,12 +47,12 @@ export const adminMenuCategories: MenuCategory[] = [
       {
         icon: GraduationCap,
         label: 'Guru',
-        path: '/admin/guru',
+        path: '/admin/add-guru',
       },
             {
         icon: GraduationCap,
         label: 'Siswa',
-        path: '/admin/siswa',
+        path: '/admin/add-siswa',
       },
     ],
   },

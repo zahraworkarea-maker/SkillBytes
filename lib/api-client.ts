@@ -43,6 +43,11 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+// Log API configuration
+if (typeof window !== 'undefined') {
+  console.log('[API CLIENT] Initialized with baseURL:', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+}
+
 // Interceptor request
 apiClient.interceptors.request.use(
   (config) => {
