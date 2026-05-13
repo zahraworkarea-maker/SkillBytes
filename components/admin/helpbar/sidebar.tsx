@@ -21,6 +21,24 @@ import { useAuth } from '@/hooks/use-auth';
 const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) => {
   const { user } = useAuth();
 
+  // Ambil username dan avatar dari backend
+  const userName = useMemo(() => {
+    return user?.name || 'User';
+  }, [user?.name]);
+
+  const userAvatar = useMemo(() => {
+    const backendAvatar = user?.avatar || user?.profile_photo || user?.profile_image || null;
+    return backendAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`;
+  }, [user?.avatar, user?.profile_photo, user?.profile_image, userName]);
+
+  const userInitials = useMemo(() => {
+    return userName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  }, [userName]);
+
   // Filter menu categories based on user role
   const menuCategories: MenuCategory[] = useMemo(() => {
     return adminMenuCategories.map((category) => {
@@ -132,11 +150,11 @@ const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => v
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ember" />
-            <AvatarFallback>EC</AvatarFallback>
+            <AvatarImage src={userAvatar} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900">Zahra Humaira</p>
+            <p className="text-sm font-medium text-gray-900">{userName}</p>
           </div>
           <Button
             variant="ghost"

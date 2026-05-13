@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -22,12 +22,23 @@ interface NavAdminProps {
 
 const NavAdmin: React.FC<NavAdminProps> = ({
   onToggleSidebar,
-  userName = 'Zahra Humaira',
-  userAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ember',
+  userName: propUserName,
+  userAvatar: propUserAvatar,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user, isLoading } = useAuth();
   const router = useRouter();
+
+  // Ambil username dan avatar dari backend atau gunakan props
+  const userName = useMemo(() => {
+    return user?.name || propUserName || 'User';
+  }, [user?.name, propUserName]);
+
+  const userAvatar = useMemo(() => {
+    // Cek apakah user memiliki field avatar dari backend
+    const backendAvatar = user?.avatar || user?.profile_photo || user?.profile_image || null;
+    return backendAvatar || propUserAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`;
+  }, [user?.avatar, user?.profile_photo, user?.profile_image, propUserAvatar, userName]);
 
   const handleLogout = async () => {
     try {

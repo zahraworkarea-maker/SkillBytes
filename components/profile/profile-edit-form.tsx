@@ -119,78 +119,74 @@ export function ProfileEditForm() {
         <p className="text-gray-600 text-sm mb-8">Update your profile photo</p>
 
         {/* Photo Upload Section */}
-        <div className="mb-8">
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-4">Profile Photo</p>
+        <div className="mb-8 text-center">
+          <p className="text-sm font-medium text-gray-700 mb-6">Profile Photo</p>
 
-            {/* Photo Container */}
-            <div className="relative w-40 h-40 mx-auto mb-6">
-              <div className="w-full h-full rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 flex items-center justify-center relative group">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Profile preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : profilePhotoUrl ? (
-                  <img
-                    src={profilePhotoUrl}
-                    alt="Current profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                    <span className="text-4xl font-bold text-white">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+          {/* Photo Container */}
+          <div className="relative w-48 h-48 mx-auto mb-6">
+            <div className="w-full h-full rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 flex items-center justify-center shadow-lg">
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt="Profile preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt="Current profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                  <span className="text-6xl font-bold text-white">
+                    {user.name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
 
-                {/* Upload Button Overlay */}
-                <button
-                  onClick={handlePhotoClick}
-                  disabled={isLoading || !!previewUrl}
-                  className={`absolute inset-0 flex items-center justify-center transition-all duration-200 rounded-full ${
-                    previewUrl
-                      ? 'bg-black bg-opacity-30'
-                      : 'bg-black bg-opacity-0 group-hover:bg-opacity-40'
-                  }`}
-                >
-                  <div
-                    className={`p-2 rounded-full transition-all duration-200 ${
-                      previewUrl
-                        ? 'bg-white bg-opacity-50'
-                        : 'bg-white bg-opacity-80 group-hover:bg-opacity-100'
-                    }`}
-                  >
-                    <Camera className="w-6 h-6 text-gray-700" />
-                  </div>
-                </button>
-
-                {/* Loading State */}
-                {isLoading && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-                    <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  </div>
-                )}
-              </div>
+              {/* Loading State */}
+              {isLoading && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                </div>
+              )}
             </div>
-
-            {/* Hidden File Input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              disabled={isLoading}
-              className="hidden"
-            />
-
-            {/* Instructions */}
-            <p className="text-xs text-gray-500 text-center">
-              Click on the photo to change it. Max size: 5MB (JPG, PNG, GIF)
-            </p>
           </div>
+
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            disabled={isLoading}
+            className="hidden"
+          />
+
+          {/* Change Photo Button */}
+          <div className="flex gap-3 justify-center mb-6">
+            <Button
+              onClick={handlePhotoClick}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              Ganti Foto
+            </Button>
+          </div>
+
+          {/* Preview Info */}
+          {previewUrl && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-700">Foto baru dipilih. Klik tombol Simpan untuk mengubah.</p>
+            </div>
+          )}
+
+          {/* Instructions */}
+          <p className="text-xs text-gray-500">
+            Format: JPG, PNG, GIF • Ukuran maksimal: 5MB
+          </p>
         </div>
 
         {/* User Info Display */}
