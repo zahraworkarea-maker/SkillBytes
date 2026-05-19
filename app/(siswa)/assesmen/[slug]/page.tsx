@@ -1,662 +1,432 @@
-'use client'
+﻿'use client';
 
-import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, RotateCcw, BookOpen } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { useParams } from 'next/navigation'
-import { assessmentDatabase, type AssessmentData, type Question } from '@/lib/assessment-data'
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Loader, AlertCircle, Clock, BookOpen, ChevronRight, ArrowLeft, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { assessmentService, assessmentAttemptService, assessmentResultService } from '@/lib/api-services';
+import { AssessmentDetail } from '@/lib/types/assessment.types';
 
-export default function AssessmentPage() {
-  const params = useParams()
-  const slug = params.slug as string
+interface AssessmentResult {
+  id: string;
+  user_id: string;
+  assessment: {
+    id: number;
+    slug: string;
+    title: string;
+    description: string;
+    time_limit: number;
+    total_questions: number;
+  };
+  score: string;
+  status: 'COMPLETED' | 'IN_PROGRESS';
+  started_at: string;
+  completed_at?: string;
+  created_at: string;
+}
 
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<number, string>>({})
-  const [showResults, setShowResults] = useState(false)
-  const [isStarted, setIsStarted] = useState(false)
-  const [completedAssessments, setCompletedAssessments] = useState<Record<string, any>>({})
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [isViewingCompletedAnswers, setIsViewingCompletedAnswers] = useState(false)
+export default function AssessmentDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = params.slug as string;
 
-  const assessment = assessmentDatabase[slug] || assessmentDatabase['l1-a1']
-  const [timeRemaining, setTimeRemaining] = useState(assessment.timeLimit * 60)
-  const currentQuestion = assessment.questions[currentQuestionIndex]
-  const progressPercentage = ((currentQuestionIndex + 1) / assessment.totalQuestions) * 100
+  const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [userResult, setUserResult] = useState<AssessmentResult | null>(null);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [allResults, setAllResults] = useState<AssessmentResult[]>([]);
+  const [showAllResults, setShowAllResults] = useState(false);
 
-  // Load completion status dari localStorage
+  // Fetch assessment detail and user results
   useEffect(() => {
-    const stored = localStorage.getItem('completedAssessments')
-    if (stored) {
-      setCompletedAssessments(JSON.parse(stored))
-    }
-    setIsLoaded(true)
-  }, [])
-
-  // Check if assessment is already completed
-  const isAssessmentCompleted = completedAssessments[slug]
-
-  // Timer logic
-  useEffect(() => {
-    if (!isStarted || showResults) return
-
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 0) {
-          setShowResults(true)
-          return 0
+    const fetchAssessmentAndResults = async () => {
+      try {
+        setLoading(true);
+        console.log('📖 Fetching assessment by slug:', slug);
+        const response = await assessmentService.getAssessmentBySlug(slug);
+        console.log('✅ Assessment fetched:', response);
+        
+        if (response.success) {
+          setAssessment(response.data);
+        } else {
+          setError('Gagal mengambil data assessment');
         }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [isStarted, showResults])
-
-  const handleSelectAnswer = (optionId: string) => {
-    if (!showResults && !isViewingCompletedAnswers) {
-      setAnswers({
-        ...answers,
-        [currentQuestion.id]: optionId,
-      })
-    }
-  }
-
-  const handleNext = () => {
-    if (currentQuestionIndex < assessment.totalQuestions - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1)
-    }
-  }
-
-  const handleSubmit = () => {
-    // Save completion status
-    const updatedCompletions = {
-      ...completedAssessments,
-      [slug]: {
-        completed: true,
-        timestamp: new Date().toISOString(),
-        answers: answers,
-        score: calculateScore(),
-        totalQuestions: assessment.totalQuestions,
-        timeSpent: assessment.timeLimit * 60 - timeRemaining,
+      } catch (err: any) {
+        console.error('❌ Error fetching assessment:', err);
+        setError(
+          err.response?.data?.message ||
+          'Terjadi kesalahan saat mengambil data assessment'
+        );
+      } finally {
+        setLoading(false);
       }
+    };
+
+    fetchAssessmentAndResults();
+  }, [slug]);
+
+  // Fetch user's assessment results
+  useEffect(() => {
+    const fetchUserResults = async () => {
+      try {
+        setResultsLoading(true);
+        console.log('� [START] Fetching user assessment results using GET /results...');
+        console.log('🔥 Slug:', slug);
+        
+        const resultsResponse = await assessmentResultService.getAllResults(1, 15);
+        console.log('🔥 Full response from GET /results:', resultsResponse);
+        console.log('🔥 Response structure:', { success: resultsResponse.success, hasData: !!resultsResponse.data, dataType: typeof resultsResponse.data });
+        
+        // Handle nested data structure
+        let resultsData = resultsResponse.data;
+        
+        // Check if data is nested (response.data.data)
+        if (resultsData && typeof resultsData === 'object' && !Array.isArray(resultsData) && resultsData.data) {
+          console.log('🔥 Detected nested data structure, extracting from response.data.data');
+          resultsData = resultsData.data;
+        }
+        
+        console.log('🔥 Results data type:', typeof resultsData, 'Is Array:', Array.isArray(resultsData));
+        
+        if (resultsResponse.success && resultsData && Array.isArray(resultsData)) {
+          console.log('🔥 Successfully got array data, total items:', resultsData.length);
+          
+          // Filter results for this specific assessment by slug
+          const filteredResults = resultsData.filter(
+            (result: AssessmentResult) => result.assessment?.slug === slug
+          );
+          
+          console.log(`🔥 Filtered ${filteredResults.length} results for slug: ${slug}`);
+          setAllResults(filteredResults);
+          
+          // Find the most recent result as the main result
+          const matchingResult = filteredResults[0] || null;
+          
+          if (matchingResult) {
+            console.log('🔥 ✅ Found most recent result for assessment:', matchingResult);
+            setUserResult(matchingResult);
+          } else {
+            console.log('🔥 ⚠️ No existing result found for this assessment');
+            setUserResult(null);
+          }
+        } else {
+          console.log('🔥 ❌ Response structure invalid:', { success: resultsResponse.success, dataIsArray: Array.isArray(resultsData) });
+        }
+      } catch (err: any) {
+        console.error('🔥 ❌ Error fetching user results:', err);
+        console.error('🔥 Error response:', err.response?.data);
+        setUserResult(null);
+      } finally {
+        setResultsLoading(false);
+      }
+    };
+
+    if (slug) {
+      console.log('🔥 [TRIGGER] useEffect for results fetch, slug:', slug);
+      fetchUserResults();
+    } else {
+      console.log('🔥 [SKIP] No slug available');
     }
-    setCompletedAssessments(updatedCompletions)
-    localStorage.setItem('completedAssessments', JSON.stringify(updatedCompletions))
-    setShowResults(true)
-  }
+  }, [slug]);
 
-  const handleConfirmSubmit = () => {
-    toast.custom(
-      (t) => (
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm mx-auto border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900 mb-2">
-            Konfirmasi Selesai
-          </h3>
-          <p className="text-slate-600 mb-6">
-            Apakah Anda yakin ingin menyelesaikan ujian ini? Anda tidak akan dapat mengerjakan ulang setelah ini.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                toast.dismiss(t)
-              }}
-              className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Batal
-            </button>
-            <button
-              onClick={() => {
-                toast.dismiss(t)
-                handleSubmit()
-              }}
-              className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Ya, Selesai
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        duration: Infinity,
-        position: 'top-center',
+  const handleStartAssessment = async () => {
+    if (!assessment) return;
+
+    try {
+      setIsStarting(true);
+      setError(null);
+      
+      console.log('🚀 Starting assessment, ID:', assessment.id);
+      console.log('🔍 Step 1: Checking for active IN_PROGRESS attempt using GET /results...');
+      
+      // Step 1: Check if there's an active IN_PROGRESS attempt by slug using GET /results
+      const activeAttemptRes = await assessmentResultService.getActiveAttemptBySlug(slug);
+      console.log('✅ Active attempt check response:', activeAttemptRes);
+      
+      if (activeAttemptRes.success && activeAttemptRes.data) {
+        const activeAttempt = activeAttemptRes.data;
+        
+        // Use the existing IN_PROGRESS attempt
+        if (activeAttempt.status === 'IN_PROGRESS') {
+          console.log('✅ Found IN_PROGRESS attempt, ID:', activeAttempt.id);
+          console.log('🔄 Redirecting to quiz with existing attempt ID:', activeAttempt.id);
+          
+          // Redirect to quiz page WITH existing attemptId
+          router.push(`/assesmen/${slug}/quiz?attemptId=${activeAttempt.id}`);
+          return;
+        }
+      } else {
+        console.log('⚠️ No active IN_PROGRESS attempt found, will create new one');
       }
-    )
-  }
 
-  const handleReset = () => {
-    setCurrentQuestionIndex(0)
-    setAnswers({})
-    setShowResults(false)
-    setTimeRemaining(assessment.timeLimit * 60)
-    setIsStarted(false)
-  }
-
-  const calculateScore = () => {
-    let correct = 0
-    assessment.questions.forEach((question: Question) => {
-      if (answers[question.id] === question.correctAnswer) {
-        correct++
+      // Step 2: No IN_PROGRESS attempt found, create new one with POST /start
+      console.log('📤 Step 2: Sending POST /assessments/{id}/start to create new attempt...');
+      const startResponse = await assessmentAttemptService.startAssessment(assessment.id);
+      console.log('✅ Start response:', startResponse);
+      
+      if (startResponse.success && startResponse.data.attempt_id) {
+        const attemptId = startResponse.data.attempt_id;
+        console.log('✅ New attempt created, ID:', attemptId);
+        console.log('🔄 Redirecting to quiz with attempt ID:', attemptId);
+        
+        // Redirect to quiz page WITH attemptId in query params
+        router.push(`/assesmen/${slug}/quiz?attemptId=${attemptId}`);
+      } else {
+        console.error('❌ Start response not successful:', startResponse);
+        setError(startResponse.message || 'Gagal memulai assessment');
+        setIsStarting(false);
       }
-    })
-    return correct
-  }
+    } catch (err: any) {
+      console.error('❌ Error in handleStartAssessment:', err);
+      setError(
+        err.response?.data?.message ||
+        'Gagal memulai assessment'
+      );
+      setIsStarting(false);
+    }
+  };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  // Handle viewing result detail
+  const handleViewResult = async (resultId: string) => {
+    console.log('👁️ Viewing result detail for attempt ID:', resultId);
+    router.push(`/assesmen/${slug}/hasil?attemptId=${resultId}`);
+  };
 
-  // Completed Assessment View
-  if (isLoaded && isAssessmentCompleted && !isStarted) {
-    const completedData = completedAssessments[slug]
-    const percentage = Math.round((completedData.score / assessment.totalQuestions) * 100)
-    const isPassed = percentage >= 60
-    const completedDate = new Date(completedData.timestamp).toLocaleDateString('id-ID')
-
+  if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl bg-white shadow-2xl">
-          <div className="p-8 md:p-12 text-center">
-            {/* Completed Icon */}
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center bg-blue-100">
-              <CheckCircle2 className="w-12 h-12 text-blue-600" />
-            </div>
-
-            {/* Status Title */}
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Assessment Sudah Diselesaikan
-            </h1>
-            <p className="text-slate-600 mb-8">
-              Anda telah menyelesaikan assessment ini pada {completedDate}
-            </p>
-
-            {/* Assessment Info */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">{assessment.title}</h2>
-              
-              {/* Score Display */}
-              <div className="mb-6">
-                <div className="text-5xl font-bold text-blue-600 mb-2">{percentage}%</div>
-                <div className="text-slate-600 mb-4">
-                  Skor: {completedData.score} / {assessment.totalQuestions} Benar
-                </div>
-                <div className="bg-slate-200 rounded-full h-3 w-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 transition-all duration-500"
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Score Details */}
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-green-600">{completedData.score}</div>
-                  <div className="text-xs text-slate-600 mt-1">Benar</div>
-                </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-red-600">
-                    {assessment.totalQuestions - completedData.score}
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1">Salah</div>
-                </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {Math.floor(completedData.timeSpent / 60)}m
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1">Waktu</div>
-                </div>
-              </div>
-
-              {/* Result Status */}
-              <div className={`p-4 rounded-lg ${isPassed ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
-                <p className={`font-semibold ${isPassed ? 'text-green-700' : 'text-orange-700'}`}>
-                  {isPassed ? '✓ Anda telah lulus assessment ini' : '⚠ Anda belum mencapai nilai kelulusan (≥60%)'}
-                </p>
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-amber-800">
-                <strong>Catatan:</strong> Anda tidak dapat mengerjakan assessment ini lagi. Assessment hanya dapat dikerjakan satu kali.
-              </p>
-            </div>
-
-            {/* Action Button */}
-            <Button
-              onClick={() => window.location.href = '/assesmen'}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
-            >
-              Kembali ke Assessment
-            </Button>
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
-  // Loading state
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center">
-        <div className="text-white text-center">
-          <p className="text-lg">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-10 h-10 text-blue-600 animate-spin" />
+          <p className="text-gray-600">Memuat Assessment...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  // Start Screen
-  if (!isStarted) {
+  if (error || !assessment) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl bg-white shadow-2xl">
-          <div className="p-8 md:p-12">
-            {/* Header Icon */}
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <BookOpen className="w-10 h-10 text-white" />
-              </div>
-            </div>
-
-            {/* Title and Description */}
-            <h1 className="text-4xl font-bold text-center text-slate-900 mb-3">
-              {assessment.title}
-            </h1>
-            <p className="text-center text-slate-600 mb-8 text-lg">
-              {assessment.description}
-            </p>
-
-            {/* Assessment Info */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-1">
-                  {assessment.totalQuestions}
-                </div>
-                <div className="text-sm text-slate-600">Total Pertanyaan</div>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-1">
-                  {assessment.timeLimit}
-                </div>
-                <div className="text-sm text-slate-600">Menit</div>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8">
-              <h3 className="font-semibold text-slate-900 mb-3">Instruksi:</h3>
-              <ul className="space-y-2 text-sm text-slate-700">
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 shrink-0">1.</span>
-                  <span>Baca setiap pertanyaan dengan cermat</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 shrink-0">2.</span>
-                  <span>Pilih salah satu jawaban yang paling tepat</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 shrink-0">3.</span>
-                  <span>Anda dapat kembali ke pertanyaan sebelumnya</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 shrink-0">4.</span>
-                  <span>Jawab semua pertanyaan sebelum submit</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Start Button */}
-            <Button
-              onClick={() => setIsStarted(true)}
-              className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-6 text-lg rounded-lg transition-all duration-300 transform hover:scale-105"
-            >
-              Mulai Assessment
-            </Button>
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
-  // Results Screen - After Submission
-  if (showResults && isStarted) {
-    const score = calculateScore()
-    const percentage = Math.round((score / assessment.totalQuestions) * 100)
-    const isPassed = percentage >= 60
-
-    return (
-      <div className="min-h-screen bg-linear-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl bg-white shadow-2xl">
-          <div className="p-8 md:p-12 text-center">
-            {/* Score Icon */}
-            <div
-              className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${
-                isPassed
-                  ? 'bg-green-100'
-                  : 'bg-orange-100'
-              }`}
-            >
-              {isPassed ? (
-                <CheckCircle2 className="w-12 h-12 text-green-600" />
-              ) : (
-                <RotateCcw className="w-12 h-12 text-orange-600" />
-              )}
-            </div>
-
-            {/* Result Title */}
-            <h1 className={`text-4xl font-bold mb-4 ${
-              isPassed ? 'text-green-600' : 'text-orange-600'
-            }`}>
-              {isPassed ? 'Luar Biasa! 🎉' : 'Selesai'}
-            </h1>
-
-            <p className="text-xl text-slate-700 mb-8">
-              {isPassed
-                ? 'Anda telah berhasil menyelesaikan assessment ini!'
-                : 'Assessment telah selesai. Silahkan cek hasil Anda.'}
-            </p>
-
-            {/* Score Display */}
-            <div className="mb-8">
-              <div className="text-6xl font-bold text-blue-600 mb-2">{percentage}%</div>
-              <div className="text-slate-600 mb-4">
-                Skor: {score} / {assessment.totalQuestions} Benar
-              </div>
-              <div className="bg-slate-100 rounded-full h-3 w-full overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-500 ${
-                    isPassed ? 'bg-green-600' : 'bg-orange-600'
-                  }`}
-                  style={{ width: `${percentage}%` }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Score Details */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-2xl font-bold text-green-600">{score}</div>
-                <div className="text-xs text-slate-600 mt-1">Benar</div>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="text-2xl font-bold text-red-600">
-                  {assessment.totalQuestions - score}
-                </div>
-                <div className="text-xs text-slate-600 mt-1">Salah</div>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="text-2xl font-bold text-blue-600">
-                  {Math.floor((assessment.timeLimit * 60 - timeRemaining) / 60)}m
-                </div>
-                <div className="text-xs text-slate-600 mt-1">Waktu</div>
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-              <p className="text-sm text-blue-800">
-                <strong>ℹ️ Informasi:</strong> Assessment ini sudah diselesaikan. Anda tidak dapat mengerjakan ulang, tetapi dapat melihat jawaban dan penjelasan.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <Button
-                onClick={() => {
-                  setShowResults(false)
-                  setCurrentQuestionIndex(0)
-                  setIsViewingCompletedAnswers(true)
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
-              >
-                Lihat Jawaban & Pembahasan
-              </Button>
-              <Button
-                onClick={() => window.location.href = '/assesmen'}
-                className="w-full bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold py-3 rounded-lg transition-all duration-300"
-              >
-                Kembali ke Assessment
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
-  // Quiz Screen
-  return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-1">
-              {assessment.title}
-            </h1>
-            <div className="flex items-center gap-3">
-              <p className="text-slate-400">
-                Pertanyaan {currentQuestionIndex + 1} dari {assessment.totalQuestions}
-              </p>
-              {isViewingCompletedAnswers && (
-                <span className="px-2 py-1 bg-blue-500/30 text-blue-300 text-xs font-semibold rounded">
-                  Mode Viewing
-                </span>
-              )}
-            </div>
-          </div>
-          <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg font-bold text-lg ${
-              timeRemaining < 300
-                ? 'bg-red-500/20 text-red-300'
-                : 'bg-blue-500/20 text-blue-300'
-            }`}
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Gagal Memuat Assessment</h1>
+          <p className="text-gray-600 mb-6">{error || 'Assessment tidak ditemukan'}</p>
+          <button
+            onClick={() => router.push('/assesmen')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
-            <Clock className="w-5 h-5" />
-            {formatTime(timeRemaining)}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <Progress value={progressPercentage} className="h-2" />
-          <p className="text-sm text-slate-400 text-right">
-            {Math.round(progressPercentage)}% Selesai
-          </p>
+            Kembali ke Daftar
+          </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Question Card */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <Card className="bg-white shadow-2xl">
-          <div className="p-8 md:p-10">
-            {/* Question Number Badge */}
-            <div className="inline-block bg-linear-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-bold mb-6">
-              Soal {currentQuestionIndex + 1}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <button
+          onClick={() => router.push('/assesmen')}
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-8 font-medium transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Kembali ke Assessment
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">{assessment.title}</h1>
+              <p className="text-lg text-gray-600 leading-relaxed">{assessment.description}</p>
             </div>
 
-            {/* Question Text */}
-            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-8 leading-tight">
-              {currentQuestion.question}
-            </h2>
+            {/* Results Section - Tampilkan hasil jika ada */}
+            {userResult && (
+              <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Hasil Assessment</h2>
+                  <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                    userResult.status === 'COMPLETED' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {userResult.status === 'COMPLETED' ? 'Selesai' : 'Sedang Dikerjakan'}
+                  </span>
+                </div>
 
-            {/* Options */}
-            <div className="space-y-3 mb-8">
-              {currentQuestion.options.map((option: {id: string, text: string}, index: number) => {
-                const isSelected = answers[currentQuestion.id] === option.id
-                const isCorrect = option.id === currentQuestion.correctAnswer
-                const showCorrectAnswer = showResults || isViewingCompletedAnswers
-
-                let optionClasses =
-                  'relative p-4 border-2 rounded-lg transition-all duration-300'
-                
-                // Set cursor based on viewing mode
-                if (isViewingCompletedAnswers) {
-                  optionClasses += ' cursor-not-allowed'
-                } else {
-                  optionClasses += ' cursor-pointer hover:border-blue-500'
-                }
-
-                if (showCorrectAnswer) {
-                  if (isCorrect) {
-                    optionClasses += ' border-green-500 bg-green-50'
-                  } else if (isSelected && !isCorrect) {
-                    optionClasses += ' border-red-500 bg-red-50'
-                  } else {
-                    optionClasses += ' border-slate-200 bg-slate-50'
-                  }
-                } else {
-                  if (isSelected) {
-                    optionClasses += ' border-blue-600 bg-blue-50'
-                  } else {
-                    optionClasses += ' border-slate-200 bg-slate-50 hover:bg-blue-50'
-                  }
-                }
-
-                return (
-                  <div
-                    key={option.id}
-                    onClick={() => handleSelectAnswer(option.id)}
-                    className={optionClasses}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          isSelected
-                            ? 'border-blue-600 bg-blue-600'
-                            : 'border-slate-300 bg-white'
-                        } ${
-                          showCorrectAnswer && isCorrect
-                            ? 'border-green-600 bg-green-600'
-                            : ''
-                        } ${
-                          showCorrectAnswer && isSelected && !isCorrect
-                            ? 'border-red-600 bg-red-600'
-                            : ''
-                        }`}
-                      >
-                        {isSelected && (
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              showCorrectAnswer && !isCorrect
-                                ? 'bg-red-600'
-                                : 'bg-white'
-                            }`}
-                          ></div>
-                        )}
-                        {showCorrectAnswer && isCorrect && (
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p
-                          className={`font-semibold ${
-                            isSelected
-                              ? 'text-slate-900'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          {String.fromCharCode(65 + index)}.{' '}
-                          {option.text}
-                        </p>
+                {/* Score Display - Hanya tampilkan jika COMPLETED */}
+                {userResult.status === 'COMPLETED' && (
+                  <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-4">
+                      <CheckCircle className="w-12 h-12 text-green-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Skor Anda</p>
+                        <p className="text-4xl font-bold text-green-600">{userResult.score}</p>
                       </div>
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                )}
 
-            {/* Viewing Mode Warning */}
-            {isViewingCompletedAnswers && (
-              <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm font-semibold text-amber-900">
-                  🔒 Anda sedang melihat jawaban dalam mode viewing. Jawaban tidak dapat diubah.
-                </p>
+                {/* Timeline */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="w-1 bg-blue-500 rounded-full flex-shrink-0"></div>
+                    <div>
+                      <p className="text-xs text-gray-600 uppercase tracking-wider">Dimulai</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {new Date(userResult.started_at).toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {userResult.status === 'COMPLETED' && userResult.completed_at && (
+                    <div className="flex gap-4 p-4 bg-green-50 rounded-lg border border-green-100">
+                      <div className="w-1 bg-green-500 rounded-full flex-shrink-0"></div>
+                      <div>
+                        <p className="text-xs text-gray-600 uppercase tracking-wider">Selesai</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {new Date(userResult.completed_at).toLocaleString('id-ID')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Button untuk melihat detail */}
+                {userResult.status === 'COMPLETED' && (
+                  <button
+                    onClick={() => handleViewResult(userResult.id)}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-5 h-5" />
+                    Lihat Detail Jawaban
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Explanation */}
-            {showResults && currentQuestion.explanation && (
-              <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-semibold text-blue-900 mb-2">💡 Penjelasan:</p>
-                <p className="text-slate-700">{currentQuestion.explanation}</p>
+            {/* Riwayat Attempt - Tampilkan jika ada lebih dari 1 attempt */}
+            {allResults.length > 1 && (
+              <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
+                <button
+                  onClick={() => setShowAllResults(!showAllResults)}
+                  className="w-full flex items-center justify-between mb-6 hover:opacity-75 transition-opacity"
+                >
+                  <h3 className="text-lg font-bold text-gray-900">Riwayat Attempt ({allResults.length})</h3>
+                  <ChevronRight className={`w-5 h-5 text-gray-600 transition-transform ${showAllResults ? 'rotate-90' : ''}`} />
+                </button>
+
+                {showAllResults && (
+                  <div className="space-y-3">
+                    {allResults.map((result, index) => (
+                      <div
+                        key={result.id}
+                        className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between"
+                      >
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Attempt {index + 1}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {new Date(result.created_at).toLocaleString('id-ID', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                          {result.status === 'COMPLETED' && (
+                            <p className="text-lg font-bold text-green-600 mt-1">Skor: {result.score}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            result.status === 'COMPLETED'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {result.status === 'COMPLETED' ? 'Selesai' : 'Berlangsung'}
+                          </span>
+                          {result.status === 'COMPLETED' && (
+                            <button
+                              onClick={() => handleViewResult(result.id)}
+                              className="px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Lihat
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </Card>
-      </div>
 
-      {/* Navigation */}
-      <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-        <Button
-          onClick={handlePrevious}
-          disabled={currentQuestionIndex === 0 || isViewingCompletedAnswers}
-          className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          Sebelumnya
-        </Button>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100 sticky top-8 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600">Batas Waktu</p>
+                    <p className="text-lg font-bold text-gray-900">{assessment.time_limit} Menit</p>
+                  </div>
+                </div>
 
-        <div className="flex flex-wrap gap-2 justify-center">
-          {assessment.questions.map((_: Question, index: number) => (
-            <button
-              key={index}
-              onClick={() => setCurrentQuestionIndex(index)}
-              className={`w-10 h-10 rounded-lg font-bold transition-all duration-300 ${
-                index === currentQuestionIndex
-                  ? 'bg-linear-to-r from-blue-600 to-purple-600 text-white scale-110'
-                  : answers[assessment.questions[index].id]
-                  ? 'bg-green-500 text-white hover:scale-110'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              {index + 1}
-            </button>
-          ))}
+                <div className="flex items-start gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <BookOpen className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600">Total Soal</p>
+                    <p className="text-lg font-bold text-gray-900">{assessment.total_questions} Soal</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <span className="font-semibold">Tips:</span> Pastikan Anda memiliki waktu yang cukup dan koneksi internet yang stabil sebelum memulai.
+                </p>
+              </div>
+
+              {userResult?.status !== 'COMPLETED' && (
+                <button
+                  onClick={() => {
+                    if (userResult?.status === 'COMPLETED') {
+                      handleViewResult(userResult.id);
+                    } else {
+                      handleStartAssessment();
+                    }
+                  }}
+                  disabled={isStarting || resultsLoading}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isStarting || resultsLoading ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      {userResult?.status === 'IN_PROGRESS'
+                        ? 'Melanjutkan...'
+                        : 'Memulai...'}
+                    </>
+                  ) : (
+                    <>
+                      {userResult?.status === 'IN_PROGRESS'
+                        ? 'Lanjutkan'
+                        : 'Mulai'}
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              )}
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-xs text-gray-600 text-center">
+                  Anda akan diberi waktu {assessment.time_limit} menit untuk menjawab semua soal. Pertanyaan tidak dapat dilewati.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {isViewingCompletedAnswers ? (
-          <Button
-            onClick={() => {
-              setShowResults(true)
-              setIsViewingCompletedAnswers(false)
-            }}
-            className="flex items-center gap-2 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Kembali ke Hasil
-          </Button>
-        ) : currentQuestionIndex === assessment.totalQuestions - 1 ? (
-          <Button
-            onClick={handleConfirmSubmit}
-            className="flex items-center gap-2 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Selesai
-          </Button>
-        ) : (
-          <Button
-            onClick={handleNext}
-            disabled={isViewingCompletedAnswers}
-            className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Selanjutnya
-            <ChevronRight className="w-5 h-5" />
-          </Button>
-        )}
       </div>
     </div>
-  )
+  );
 }

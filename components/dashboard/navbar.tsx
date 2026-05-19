@@ -24,8 +24,9 @@ export function Navbar() {
   const displayName = user?.name || 'User'
   const displayRole = (user?.role_label || user?.role || '-').toUpperCase()
   const avatarInitial = displayName.charAt(0).toUpperCase()
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'
   const profilePhotoUrl = user?.profile_photo_url
-    ? `${'http://localhost:8000'}${user.profile_photo_url}`
+    ? `${baseUrl}${user.profile_photo_url}`
     : null
 
   const handleLogout = async () => {

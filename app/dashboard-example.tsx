@@ -1,56 +1,109 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, memo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { userService, courseService, assessmentService } from '@/lib/api-services';
+import { useCachedData } from '@/hooks/use-cached-data';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert } from '@/components/ui/alert';
+
+// Memoized Stats Card Component
+const StatsCard = memo(({ title, value, color, loading }: {
+  title: string;
+  value: number;
+  color: string;
+  loading: boolean;
+}) => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+    <p className={`text-3xl font-bold ${color} mt-2`}>
+      {loading ? <Skeleton className="h-8 w-16" /> : value}
+    </p>
+  </div>
+));
+StatsCard.displayName = 'StatsCard';
+
+// Memoized User Row Component
+const UserRow = memo(({ usr }: { usr: any }) => (
+  <tr className="border-b hover:bg-gray-50">
+    <td className="px-4 py-2">{usr.id}</td>
+    <td className="px-4 py-2">{usr.name}</td>
+    <td className="px-4 py-2">{usr.email}</td>
+  </tr>
+));
+UserRow.displayName = 'UserRow';
+
+// Memoized Course Card Component
+const CourseCard = memo(({ course }: { course: any }) => (
+  <div className="border rounded-lg p-4 hover:shadow-md transition">
+    <h3 className="font-semibold text-gray-900">{course.name}</h3>
+    <p className="text-gray-600 text-sm mt-1">{course.description}</p>
+  </div>
+));
+CourseCard.displayName = 'CourseCard';
+
+// Memoized Assessment Item Component
+const AssessmentItem = memo(({ assessment }: { assessment: any }) => (
+  <div className="border rounded-lg p-4 hover:shadow-md transition">
+    <div className="flex justify-between items-start">
+      <div>
+        <h3 className="font-semibold text-gray-900">{assessment.title}</h3>
+        <p className="text-gray-600 text-sm mt-1">{assessment.description}</p>
+      </div>
+      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+        {assessment.status || 'Pending'}
+      </span>
+    </div>
+  </div>
+));
+AssessmentItem.displayName = 'AssessmentItem';
 
 export default function DashboardExample() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
 
-  const [users, setUsers] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [assessments, setAssessments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // Use cached data hooks untuk setiap API call
+  const usersResult = useCachedData(
+    useCallback(() => userService.getAllUsers().then(res => res.data || res), []),
+    { cacheKey: 'dashboard-users', cacheTTL: 600 } // 10 menit
+  );
 
-  useEffect(() => {
-    // Jika belum login, redirect ke login page
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+  const coursesResult = useCachedData(
+    useCallback(() => courseService.getAllCourses().then(res => res.data || res), []),
+    { cacheKey: 'dashboard-courses', cacheTTL: 600 }
+  );
 
-    // Fetch data jika sudah login
-    if (isAuthenticated) {
-      const fetchData = async () => {
-        try {
-          setError('');
-          
-          // Fetch semua data secara parallel
-          const [usersRes, coursesRes, assessmentsRes] = await Promise.all([
-            userService.getAllUsers(),
-            courseService.getAllCourses(),
-            assessmentService.getAllAssessments(),
-          ]);
+  const assessmentsResult = useCachedData(
+    useCallback(() => assessmentService.getAllAssessments().then(res => res.data || res), []),
+    { cacheKey: 'dashboard-assessments', cacheTTL: 600 }
+  );
 
-          setUsers(usersRes.data || usersRes);
-          setCourses(coursesRes.data || coursesRes);
-          setAssessments(assessmentsRes.data || assessmentsRes);
-        } catch (err: any) {
-          console.error('Fetch data error:', err);
-          setError('Gagal memuat data dari server');
-        } finally {
-          setLoading(false);
-        }
-      };
+  // Memoize combined loading state
+  const isLoading = useMemo(
+    () => usersResult.loading || coursesResult.loading || assessmentsResult.loading,
+    [usersResult.loading, coursesResult.loading, assessmentsResult.loading]
+  );
 
-      fetchData();
-    }
-  }, [isAuthenticated, authLoading, router]);
+  // Get first error jika ada
+  const error = useMemo(
+    () => usersResult.error?.message || coursesResult.error?.message || assessmentsResult.error?.message || '',
+    [usersResult.error, coursesResult.error, assessmentsResult.error]
+  );
+
+  // Redirect jika belum login
+  if (!authLoading && !isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
+
+  if (authLoading) {
+    return <div className="p-8">Loading authentication...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {
@@ -60,14 +113,6 @@ export default function DashboardExample() {
       console.error('Logout error:', err);
     }
   };
-
-  if (authLoading) {
-    return <div className="p-8">Loading authentication...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return null; // redirect in useEffect
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,39 +143,37 @@ export default function DashboardExample() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Total Users</h3>
-            <p className="text-3xl font-bold text-blue-600 mt-2">
-              {loading ? <Skeleton className="h-8 w-16" /> : users.length}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Total Courses</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {loading ? <Skeleton className="h-8 w-16" /> : courses.length}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Total Assessments</h3>
-            <p className="text-3xl font-bold text-purple-600 mt-2">
-              {loading ? <Skeleton className="h-8 w-16" /> : assessments.length}
-            </p>
-          </div>
+          <StatsCard 
+            title="Total Users" 
+            value={usersResult.data?.length || 0} 
+            color="text-blue-600" 
+            loading={usersResult.loading}
+          />
+          <StatsCard 
+            title="Total Courses" 
+            value={coursesResult.data?.length || 0} 
+            color="text-green-600" 
+            loading={coursesResult.loading}
+          />
+          <StatsCard 
+            title="Total Assessments" 
+            value={assessmentsResult.data?.length || 0} 
+            color="text-purple-600" 
+            loading={assessmentsResult.loading}
+          />
         </div>
 
         {/* Users Table */}
         <section className="bg-white rounded-lg shadow mb-8">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Users List</h2>
-            {loading ? (
+            {usersResult.loading ? (
               <div className="space-y-3">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : users.length > 0 ? (
+            ) : (usersResult.data && usersResult.data.length > 0) ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
@@ -141,12 +184,8 @@ export default function DashboardExample() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.slice(0, 5).map((usr: any) => (
-                      <tr key={usr.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-2">{usr.id}</td>
-                        <td className="px-4 py-2">{usr.name}</td>
-                        <td className="px-4 py-2">{usr.email}</td>
-                      </tr>
+                    {usersResult.data.slice(0, 5).map((usr: any) => (
+                      <UserRow key={usr.id} usr={usr} />
                     ))}
                   </tbody>
                 </table>
@@ -161,18 +200,15 @@ export default function DashboardExample() {
         <section className="bg-white rounded-lg shadow mb-8">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Courses</h2>
-            {loading ? (
+            {coursesResult.loading ? (
               <div className="space-y-3">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : courses.length > 0 ? (
+            ) : (coursesResult.data && coursesResult.data.length > 0) ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {courses.slice(0, 4).map((course: any) => (
-                  <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition">
-                    <h3 className="font-semibold text-gray-900">{course.name}</h3>
-                    <p className="text-gray-600 text-sm mt-1">{course.description}</p>
-                  </div>
+                {coursesResult.data.slice(0, 4).map((course: any) => (
+                  <CourseCard key={course.id} course={course} />
                 ))}
               </div>
             ) : (
@@ -185,25 +221,15 @@ export default function DashboardExample() {
         <section className="bg-white rounded-lg shadow">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Assessments</h2>
-            {loading ? (
+            {assessmentsResult.loading ? (
               <div className="space-y-3">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : assessments.length > 0 ? (
+            ) : (assessmentsResult.data && assessmentsResult.data.length > 0) ? (
               <div className="space-y-3">
-                {assessments.slice(0, 5).map((assessment: any) => (
-                  <div key={assessment.id} className="border rounded-lg p-4 hover:shadow-md transition">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{assessment.title}</h3>
-                        <p className="text-gray-600 text-sm mt-1">{assessment.description}</p>
-                      </div>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                        {assessment.status || 'Pending'}
-                      </span>
-                    </div>
-                  </div>
+                {assessmentsResult.data.slice(0, 5).map((assessment: any) => (
+                  <AssessmentItem key={assessment.id} assessment={assessment} />
                 ))}
               </div>
             ) : (

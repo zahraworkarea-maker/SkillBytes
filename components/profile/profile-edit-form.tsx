@@ -16,8 +16,9 @@ export function ProfileEditForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string>('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'
   const profilePhotoUrl = user?.profile_photo_url
-    ? `${'http://localhost:8000'}${user.profile_photo_url}`
+    ? `${baseUrl}${user.profile_photo_url}`
     : null
 
   if (!user) {

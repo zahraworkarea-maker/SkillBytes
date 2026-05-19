@@ -1,449 +1,211 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { Lock, CheckCircle, Clock, Folder, BarChart3, Code2, Database, Layers, Settings, Zap, Cpu, GitBranch, Shuffle, Shield, Plus, Eye, RefreshCw } from 'lucide-react'
-import { AssessmentCard } from '@/components/assesmen/assessment-card'
-import { SKKNILevelCard } from '@/components/assesmen/skkni-level-card'
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader, AlertCircle, Search, Clock, BookOpen } from 'lucide-react';
+import { assessmentService } from '@/lib/api-services';
+import { Assessment, PaginationMeta } from '@/lib/types/assessment.types';
+import { useToast } from '@/hooks/use-toast';
 
-interface Assessment {
-  id: string
-  title: string
-  icon: React.ReactNode
-  status: 'completed' | 'in-progress' | 'locked'
-  description?: string
-}
+export default function AssessmentsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
 
-interface AssessmentLevel {
-  id: number
-  levelNumber: number
-  title: string
-  description: string
-  icon: React.ReactNode
-  assessments: Assessment[]
-  bgColor?: string
-}
-
-const assessmentLevels: AssessmentLevel[] = [
-  {
-    id: 1,
-    levelNumber: 1,
-    title: 'LEVEL 1 - Dasar OOP',
-    description: 'Mengukur Pengetahuan Dasar Class dan Object',
-    icon: <Folder className="w-6 h-6" />,
-    assessments: [
-      {
-        id: 'l1-a1',
-        title: 'Konsep Class dan Object',
-        icon: <Layers className="w-5 h-5" />,
-        status: 'completed',
-        description: 'Memahami dasar-dasar class dan object dalam OOP'
-      },
-      {
-        id: 'l1-a2',
-        title: 'Constructor dan Destructor',
-        icon: <Settings className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Pelajari cara membuat dan menghancurkan objek'
-      },
-      {
-        id: 'l1-a3',
-        title: 'Properties dan Methods',
-        icon: <Zap className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Menguasai atribut dan fungsi dalam class'
-      },
-    ],
-  },
-  {
-    id: 2,
-    levelNumber: 2,
-    title: 'LEVEL 2 - Struktur dan Komponen OOP',
-    description: 'Mengukur pemahaman tentang struktur dan komponen dalam OOP',
-    icon: <BarChart3 className="w-6 h-6" />,
-    assessments: [
-      {
-        id: 'l2-a1',
-        title: 'Inheritance',
-        icon: <GitBranch className="w-5 h-5" />,
-        status: 'in-progress',
-        description: 'Konsep pewarisan dalam OOP'
-      },
-      {
-        id: 'l2-a2',
-        title: 'Polymorphism',
-        icon: <Shuffle className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Kemampuan objek untuk memiliki banyak bentuk'
-      },
-      {
-        id: 'l2-a3',
-        title: 'Encapsulation',
-        icon: <Shield className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Menyembunyikan detail implementasi'
-      },
-    ],
-  },
-  {
-    id: 3,
-    levelNumber: 3,
-    title: 'LEVEL 3 - CRUD dalam OOP',
-    description: 'Mengukur pemahaman tentang operasi Create, Read, Update, dan Delete',
-    icon: <Code2 className="w-6 h-6" />,
-    assessments: [
-      {
-        id: 'l3-a1',
-        title: 'Create Operations',
-        icon: <Plus className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Operasi pembuatan data dalam OOP'
-      },
-      {
-        id: 'l3-a2',
-        title: 'Read Operations',
-        icon: <Eye className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Operasi pembacaan data dalam OOP'
-      },
-      {
-        id: 'l3-a3',
-        title: 'Update Operations',
-        icon: <RefreshCw className="w-5 h-5" />,
-        status: 'locked',
-        description: 'Operasi pembaruan data dalam OOP'
-      },
-    ],
-  },
-]
-
-const skkniLevels: AssessmentLevel[] = [
-  {
-    id: 4,
-    levelNumber: 1,
-    title: 'Level 1',
-    description: 'Basic OOP',
-    icon: <Folder className="w-6 h-6" />,
-    bgColor: 'bg-green-50',
-    assessments: [
-      {
-        id: 'skkni-1-1',
-        title: 'Assessment',
-        icon: <CheckCircle className="w-5 h-5" />,
-        status: 'completed',
-      },
-    ],
-  },
-  {
-    id: 5,
-    levelNumber: 2,
-    title: 'Level 2',
-    description: 'Class & Object Implementation',
-    icon: <BarChart3 className="w-6 h-6" />,
-    bgColor: 'bg-blue-50',
-    assessments: [
-      {
-        id: 'skkni-2-1',
-        title: 'Assessment',
-        icon: <Clock className="w-5 h-5" />,
-        status: 'in-progress',
-      },
-    ],
-  },
-  {
-    id: 6,
-    levelNumber: 3,
-    title: 'Level 3',
-    description: 'Encapsulation & Integration',
-    icon: <Lock className="w-6 h-6" />,
-    bgColor: 'bg-purple-50',
-    assessments: [
-      {
-        id: 'skkni-3-1',
-        title: 'Assessment',
-        icon: <Lock className="w-5 h-5" />,
-        status: 'locked',
-      },
-    ],
-  },
-]
-
-export default function AssesmentPage() {
-  const router = useRouter()
-  const [expandedLevels, setExpandedLevels] = useState<Set<number>>(new Set())
-  const [completedAssessments, setCompletedAssessments] = useState<Record<string, any>>({})
-
-  // Load completion status dari localStorage
+  // Fetch assessments
   useEffect(() => {
-    const stored = localStorage.getItem('completedAssessments')
-    console.log('Loading from localStorage:', stored)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      console.log('Parsed data:', parsed)
-      setCompletedAssessments(parsed)
-    }
-  }, [])
+    const fetchAssessments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await assessmentService.getAllAssessments(
+          currentPage,
+          15,
+          searchQuery || undefined
+        );
+        
+        if (response.success) {
+          setAssessments(response.data);
+          setPagination(response.pagination);
+        } else {
+          setError('Gagal mengambil data assessment');
+        }
+      } catch (err: any) {
+        console.error('Error fetching assessments:', err);
+        setError(
+          err.response?.data?.message ||
+          'Terjadi kesalahan saat mengambil data assessment'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Log untuk debug
-  useEffect(() => {
-    console.log('=== DEBUG LOG ===')
-    console.log('completedAssessments updated:', completedAssessments)
-    console.log('L1-A1 completed?', completedAssessments['l1-a1']?.completed)
-    console.log('L1-A2 completed?', completedAssessments['l1-a2']?.completed)
-    console.log('L1-A3 completed?', completedAssessments['l1-a3']?.completed)
-    
-    // Test checkPrerequisites for L2-A1
-    const prerequisites = ['l1-a1', 'l1-a2', 'l1-a3']
-    const allL1Complete = prerequisites.every(prereq => completedAssessments[prereq]?.completed === true)
-    console.log('All L1 complete?', allL1Complete)
-    console.log('=== END DEBUG LOG ===')
-  }, [completedAssessments])
-
-  // Assessment level prerequisites - level based unlock
-  // Level 1 semua terbuka, Level 2 buka jika semua L1 selesai, Level 3 buka jika semua L2 selesai
-  const assessmentPrerequisites: Record<string, string[]> = {
-    // Level 1 - All open, no prerequisites
-    'l1-a1': [],
-    'l1-a2': [],
-    'l1-a3': [],
-    // Level 2 - Requires all Level 1 completed
-    'l2-a1': ['l1-a1', 'l1-a2', 'l1-a3'],
-    'l2-a2': ['l1-a1', 'l1-a2', 'l1-a3'],
-    'l2-a3': ['l1-a1', 'l1-a2', 'l1-a3'],
-    // Level 3 - Requires all Level 2 completed
-    'l3-a1': ['l2-a1', 'l2-a2', 'l2-a3'],
-    'l3-a2': ['l2-a1', 'l2-a2', 'l2-a3'],
-    'l3-a3': ['l2-a1', 'l2-a2', 'l2-a3'],
-  }
-
-  // Check if assessment prerequisites are met
-  const checkPrerequisites = (assessmentId: string): boolean => {
-    const prerequisites = assessmentPrerequisites[assessmentId]
-    if (!prerequisites || prerequisites.length === 0) {
-      return true // No prerequisites, so it's allowed
-    }
-    const allMet = prerequisites.every((prereq) => {
-      const isComplete = completedAssessments[prereq]?.completed
-      console.log(`Checking ${assessmentId}: prerequisite ${prereq} = ${isComplete}`)
-      return isComplete
-    })
-    console.log(`Assessment ${assessmentId} prerequisites met: ${allMet}`)
-    return allMet
-  }
-
-  // Update assessment status based on completion and prerequisites
-  const getUpdatedStatus = (assessmentId: string, defaultStatus: 'completed' | 'in-progress' | 'locked') => {
-    // If already completed, show completed
-    if (completedAssessments[assessmentId]?.completed) {
-      console.log(`${assessmentId} -> completed (already done)`)
-      return 'completed'
-    }
-    
-    // Check if prerequisites are met
-    if (!checkPrerequisites(assessmentId)) {
-      console.log(`${assessmentId} -> locked (prerequisites not met)`)
-      return 'locked'
-    }
-    
-    // If prerequisites are met and not completed yet, show in-progress
-    console.log(`${assessmentId} -> in-progress (prerequisites met, ready to take)`)
-    return 'in-progress'
-  }
-
-  const dynamicAssessmentLevels: AssessmentLevel[] = useMemo(() => [
-    {
-      id: 1,
-      levelNumber: 1,
-      title: 'LEVEL 1 - Dasar OOP',
-      description: 'Mengukur Pengetahuan Dasar Class dan Object',
-      icon: <Folder className="w-6 h-6" />,
-      assessments: [
-        {
-          id: 'l1-a1',
-          title: 'Konsep Class dan Object',
-          icon: <Layers className="w-5 h-5" />,
-          status: getUpdatedStatus('l1-a1', 'in-progress'),
-          description: 'Memahami dasar-dasar class dan object dalam OOP'
-        },
-        {
-          id: 'l1-a2',
-          title: 'Constructor dan Destructor',
-          icon: <Settings className="w-5 h-5" />,
-          status: getUpdatedStatus('l1-a2', 'in-progress'),
-          description: 'Pelajari cara membuat dan menghancurkan objek'
-        },
-        {
-          id: 'l1-a3',
-          title: 'Properties dan Methods',
-          icon: <Zap className="w-5 h-5" />,
-          status: getUpdatedStatus('l1-a3', 'in-progress'),
-          description: 'Menguasai atribut dan fungsi dalam class'
-        },
-      ],
-    },
-    {
-      id: 2,
-      levelNumber: 2,
-      title: 'LEVEL 2 - Struktur dan Komponen OOP',
-      description: 'Mengukur pemahaman tentang struktur dan komponen dalam OOP',
-      icon: <BarChart3 className="w-6 h-6" />,
-      assessments: [
-        {
-          id: 'l2-a1',
-          title: 'Inheritance',
-          icon: <GitBranch className="w-5 h-5" />,
-          status: getUpdatedStatus('l2-a1', 'locked'),
-          description: 'Konsep pewarisan dalam OOP'
-        },
-        {
-          id: 'l2-a2',
-          title: 'Polymorphism',
-          icon: <Shuffle className="w-5 h-5" />,
-          status: getUpdatedStatus('l2-a2', 'locked'),
-          description: 'Kemampuan objek untuk memiliki banyak bentuk'
-        },
-        {
-          id: 'l2-a3',
-          title: 'Encapsulation',
-          icon: <Shield className="w-5 h-5" />,
-          status: getUpdatedStatus('l2-a3', 'locked'),
-          description: 'Menyembunyikan detail implementasi'
-        },
-      ],
-    },
-    {
-      id: 3,
-      levelNumber: 3,
-      title: 'LEVEL 3 - CRUD dalam OOP',
-      description: 'Mengukur pemahaman tentang operasi Create, Read, Update, dan Delete',
-      icon: <Code2 className="w-6 h-6" />,
-      assessments: [
-        {
-          id: 'l3-a1',
-          title: 'Create Operations',
-          icon: <Plus className="w-5 h-5" />,
-          status: getUpdatedStatus('l3-a1', 'locked'),
-          description: 'Operasi pembuatan data dalam OOP'
-        },
-        {
-          id: 'l3-a2',
-          title: 'Read Operations',
-          icon: <Eye className="w-5 h-5" />,
-          status: getUpdatedStatus('l3-a2', 'locked'),
-          description: 'Operasi pembacaan data dalam OOP'
-        },
-        {
-          id: 'l3-a3',
-          title: 'Update Operations',
-          icon: <RefreshCw className="w-5 h-5" />,
-          status: getUpdatedStatus('l3-a3', 'locked'),
-          description: 'Operasi pembaruan data dalam OOP'
-        },
-      ],
-    },
-  ], [completedAssessments])
+    fetchAssessments();
+  }, [currentPage, searchQuery]);
 
   const handleStartAssessment = (assessment: Assessment) => {
-    const slug = assessment.id.replace(/\s+/g, '-').toLowerCase()
-    router.push(`/assesmen/${slug}`)
+    router.push(`/assesmen/${assessment.slug}`);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  if (loading && assessments.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-10 h-10 text-blue-600 animate-spin" />
+          <p className="text-gray-600">Memuat Assessment...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Header Section */}
-        <div className="mb-12 animate-fade-in">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-            Skill Competency Assessment
-          </h1>
-          <p className="text-slate-600 text-base">
-            Evaluasi pemahaman Anda melalui tes yang terstruktur.
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Assessment</h1>
+          <p className="text-lg text-gray-600">
+            Ukur pengetahuan Anda melalui berbagai assessment yang tersedia
           </p>
         </div>
 
-        {/* Assessment Levels Section */}
-        <div className="space-y-8 mb-12">
-          {dynamicAssessmentLevels.map((level, levelIndex) => (
-            <div key={level.id} className="animate-fade-in" style={{ animationDelay: `${levelIndex * 100}ms` }}>
-              <div className="mb-4">
-                <h2 className="text-xl font-bold text-slate-900">
-                  {level.title}
-                </h2>
-                <p className="text-sm text-slate-600">
-                  {level.description}
-                </p>
-              </div>
+        {/* Search Bar */}
+        <div className="mb-8">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Cari assessment..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
 
-              {/* Assessments Grid */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-md transition-all duration-300">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {level.assessments.slice(0, expandedLevels.has(level.id) ? undefined : 3).map((assessment, assessIndex) => (
-                    <div
-                      key={assessment.id}
-                      style={{ animationDelay: `${levelIndex * 100 + assessIndex * 50}ms` }}
-                    >
-                      <AssessmentCard
-                        assessment={assessment}
-                        onStart={handleStartAssessment}
-                      />
+        {/* Error Message */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Assessments Grid */}
+        {assessments.length > 0 ? (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {assessments.map((assessment) => (
+                <div
+                  key={assessment.id}
+                  className="group bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 hover:border-blue-300"
+                >
+                  {/* Header */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                      <BookOpen className="w-6 h-6 text-blue-600" />
                     </div>
-                  ))}
-                </div>
-                {level.assessments.length > 3 && (
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => {
-                        const newExpanded = new Set(expandedLevels)
-                        if (newExpanded.has(level.id)) {
-                          newExpanded.delete(level.id)
-                        } else {
-                          newExpanded.add(level.id)
-                        }
-                        setExpandedLevels(newExpanded)
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                    >
-                      {expandedLevels.has(level.id) ? 'Tampilkan lebih sedikit' : 'Lihat lebih banyak'}
-                    </button>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 line-clamp-2">
+                        {assessment.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        {assessment.description}
+                      </p>
+                    </div>
                   </div>
-                )}
+
+                  {/* Info */}
+                  <div className="space-y-2 mb-6 py-4 border-y border-gray-100">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Clock className="w-4 h-4" />
+                      <span>{assessment.time_limit} menit</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <BookOpen className="w-4 h-4" />
+                      <span>{assessment.total_questions} soal</span>
+                    </div>
+                  </div>
+
+                  {/* Button */}
+                  <button
+                    onClick={() => handleStartAssessment(assessment)}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Lihat Detail
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination && pagination.last_page > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Sebelumnya
+                </button>
+
+                {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
+                  .slice(
+                    Math.max(0, currentPage - 2),
+                    Math.min(pagination.last_page, currentPage + 1)
+                  )
+                  .map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg ${
+                        page === currentPage
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                <button
+                  onClick={() =>
+                    setCurrentPage(
+                      Math.min(pagination.last_page, currentPage + 1)
+                    )
+                  }
+                  disabled={currentPage === pagination.last_page}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Berikutnya
+                </button>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Section 1: Skill Development with Status */}
-        <div className="bg-linear-to-r from-blue-100 to-purple-100 rounded-2xl p-8 md:p-10 mb-12 animate-fade-in" style={{ animationDelay: '300ms' }}>
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
-                ⚙️ Skill Development (Integrated SKKNI)
-              </h2>
-              <p className="text-slate-600 text-sm md:text-base">
-                Competency-based progression aligned with SKKNI standards.
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-yellow-200 text-yellow-800 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap">
-              ⭐ SKKNI standard
-            </div>
+            )}
           </div>
-
-          {/* Skill Level Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {skkniLevels.map((level, index) => (
-              <div
-                key={level.id}
-                style={{ animationDelay: `${index * 80}ms` }}
-              >
-                <SKKNILevelCard level={level} style="colored" />
-              </div>
-            ))}
+        ) : (
+          <div className="text-center py-12">
+            <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg">
+              {searchQuery
+                ? 'Tidak ada assessment yang cocok dengan pencarian Anda'
+                : 'Tidak ada assessment tersedia saat ini'}
+            </p>
           </div>
-        </div>
-
-      </main>
+        )}
+      </div>
     </div>
-  )
+  );
 }
-

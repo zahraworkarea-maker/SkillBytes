@@ -191,11 +191,48 @@ export const courseService = {
 
 export const assessmentService = {
   /**
-   * Get semua assessments
+   * Get semua assessments dengan pagination
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 15)
+   * @param search - Search term (optional)
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "data": [
+   *     {
+   *       "id": 3,
+   *       "slug": "l1-sample-5q",
+   *       "title": "Sample: Dasar Class & Object (5 soal)",
+   *       "description": "Assessment singkat 5 soal untuk konsep dasar class dan object",
+   *       "time_limit": 15,
+   *       "total_questions": 5,
+   *       "created_at": "2026-05-13T16:01:33.000000Z",
+   *       "updated_at": "2026-05-13T16:01:33.000000Z"
+   *     }
+   *   ],
+   *   "pagination": {
+   *     "total": 3,
+   *     "count": 3,
+   *     "per_page": 15,
+   *     "current_page": 1,
+   *     "last_page": 1
+   *   }
+   * }
    */
-  async getAllAssessments() {
+  async getAllAssessments(page: number = 1, perPage: number = 15, search?: string) {
     try {
-      const response = await apiClient.get('/assessments');
+      const params: any = {
+        page,
+        per_page: perPage,
+      };
+      
+      if (search) {
+        params.search = search;
+      }
+      
+      const response = await apiClient.get('/assessments', {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error;
@@ -215,12 +252,200 @@ export const assessmentService = {
   },
 
   /**
+   * Get assessment detail berdasarkan slug
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "data": {
+   *     "id": "2",
+   *     "title": "General Knowledge Test",
+   *     "description": "Test your general knowledge about various topics",
+   *     "total_questions": 2,
+   *     "time_limit": 45,
+   *     "questions": [
+   *       {
+   *         "id": "4",
+   *         "question": "What is the capital of Indonesia?",
+   *         "options": [
+   *           {
+   *             "id": "13",
+   *             "label": "a",
+   *             "text": "Bandung"
+   *           },
+   *           ...
+   *         ]
+   *       }
+   *     ]
+   *   }
+   * }
+   */
+  async getAssessmentBySlug(slug: string) {
+    try {
+      const response = await apiClient.get(`/assessments/${slug}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new assessment
+   * @param data - Assessment data (title, slug, description, time_limit)
+   */
+  async createAssessment(data: Record<string, any>) {
+    try {
+      const response = await apiClient.post('/assessments', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update an assessment
+   * @param id - Assessment ID
+   * @param data - Updated assessment data
+   */
+  async updateAssessment(id: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.put(`/assessments/${id}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete an assessment
+   * @param id - Assessment ID
+   */
+  async deleteAssessment(id: number | string) {
+    try {
+      const response = await apiClient.delete(`/assessments/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
    * Submit assessment/quiz
    */
   async submitAssessment(id: number | string, answers: Record<string, any>) {
     try {
       const response = await apiClient.post(`/assessments/${id}/submit`, answers);
       return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create multiple questions with multiple options in bulk for an assessment
+   * @param assessmentId - Assessment ID
+   * @param questions - Array of questions with their options
+   * Handles creating questions and options across separate endpoints
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "message": "Questions created successfully",
+   *   "data": [
+   *     {
+   *       "id": 1,
+   *       "text": "What is...",
+   *       "assessment_id": 1,
+   *       "options": [
+   *         {
+   *           "id": 1,
+   *           "label": "A",
+   *           "text": "Answer A",
+   *           "is_correct": true,
+   *           "question_id": 1
+   *         },
+   *         {
+   *           "id": 2,
+   *           "label": "B",
+   *           "text": "Answer B",
+   *           "is_correct": false,
+   *           "question_id": 1
+   *         }
+   *       ]
+   *     }
+   *   ]
+   * }
+   */
+  async bulkCreateQuestions(assessmentId: number | string, questions: Array<{
+    question: string;
+    options: Array<{
+      label: string;
+      text: string;
+      is_correct: boolean;
+    }>;
+  }>) {
+    try {
+      // Step 1: Create all questions at once
+      const formattedQuestions = questions.map(q => ({
+        text: q.question,
+      }));
+
+      const questionsResponse = await apiClient.post(
+        `/assessments/${assessmentId}/questions`,
+        { questions: formattedQuestions },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      // Response structure: { success, message, data: { total_created, questions: [...] } }
+      const responseData = questionsResponse.data.data || questionsResponse.data;
+      const createdQuestionsList = Array.isArray(responseData) 
+        ? responseData 
+        : responseData.questions || [];
+      
+      const createdQuestions: any[] = [];
+
+      // Step 2: Create options for each question (send all options as array)
+      for (let i = 0; i < createdQuestionsList.length; i++) {
+        const questionData = createdQuestionsList[i];
+        const questionId = questionData.id;
+        const questionOptions = questions[i].options;
+
+        // Send all options at once as array
+        const optionsResponse = await apiClient.post(
+          `/questions/${questionId}/options`,
+          { options: questionOptions },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        // Parse options response - could be array or object with data property
+        const optionsData = optionsResponse.data.data || optionsResponse.data;
+        const createdOptions = Array.isArray(optionsData) ? optionsData : optionsData.options || [];
+
+        createdQuestions.push({
+          ...questionData,
+          options: createdOptions,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Questions created successfully',
+        data: createdQuestions,
+      };
     } catch (error) {
       throw error;
     }
@@ -504,6 +729,411 @@ export const pblService = {
       return response.data;
     } catch (error) {
       throw error;
+    }
+  },
+};
+
+// ============= Question Services =============
+
+export const questionService = {
+  /**
+   * Create a new question for assessment
+   * @param assessmentId - Assessment ID
+   * @param data - Question data (question, options array)
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "data": {
+   *     "id": 1,
+   *     "question": "What is the capital of France?",
+   *     "assessment_id": 1,
+   *     "created_at": "2026-05-18T...",
+   *     "updated_at": "2026-05-18T..."
+   *   }
+   * }
+   */
+  async createQuestion(assessmentId: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.post(`/assessments/${assessmentId}/questions`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing question
+   * @param id - Question ID
+   * @param data - Updated question data
+   */
+  async updateQuestion(id: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.put(`/questions/${id}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a question
+   * @param id - Question ID
+   */
+  async deleteQuestion(id: number | string) {
+    try {
+      const response = await apiClient.delete(`/questions/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get question by ID
+   * @param id - Question ID
+   */
+  async getQuestionById(id: number | string) {
+    try {
+      const response = await apiClient.get(`/questions/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// ============= Option Services =============
+
+export const optionService = {
+  /**
+   * Create a new option for question
+   * @param questionId - Question ID
+   * @param data - Option data (label, text, is_correct)
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "data": {
+   *     "id": 1,
+   *     "question_id": 1,
+   *     "label": "A",
+   *     "text": "Paris",
+   *     "is_correct": true,
+   *     "created_at": "2026-05-18T...",
+   *     "updated_at": "2026-05-18T..."
+   *   }
+   * }
+   */
+  async createOption(questionId: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.post(`/questions/${questionId}/options`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing option
+   * @param id - Option ID
+   * @param data - Updated option data
+   */
+  async updateOption(id: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.put(`/options/${id}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete an option
+   * @param id - Option ID
+   */
+  async deleteOption(id: number | string) {
+    try {
+      const response = await apiClient.delete(`/options/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get option by ID
+   * @param id - Option ID
+   */
+  async getOptionById(id: number | string) {
+    try {
+      const response = await apiClient.get(`/options/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get all options for a question
+   * @param questionId - Question ID
+   */
+  async getOptionsByQuestion(questionId: number | string) {
+    try {
+      const response = await apiClient.get(`/questions/${questionId}/options`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// ============= Assessment Attempt Services =============
+
+export const assessmentAttemptService = {
+  /**
+   * Start an assessment attempt
+   * @param assessmentId - Assessment ID
+   * Returns: { attempt_id, assessment: {...questions} }
+   */
+  async startAssessment(assessmentId: number | string) {
+    try {
+      console.log(`📤 [API] POST /assessments/${assessmentId}/start - Sending request...`);
+      const response = await apiClient.post(`/assessments/${assessmentId}/start`, {}, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log(`✅ [API] POST /assessments/${assessmentId}/start - Response:`, response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`❌ [API] POST /assessments/${assessmentId}/start - Error:`, error.response?.status, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Submit an answer for a question (deprecated - use submitAnswersBatch instead)
+   * @param attemptId - Attempt ID
+   * @param questionId - Question ID
+   * @param selectedOptionId - Selected option ID
+   */
+  async submitAnswer(attemptId: number | string, questionId: number | string, selectedOptionId: number | string) {
+    try {
+      const response = await apiClient.post(
+        `/assessments/${attemptId}/answers`,
+        {
+          question_id: questionId,
+          selected_option_id: selectedOptionId,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Submit multiple answers in batch
+   * @param attemptId - Attempt ID
+   * @param answers - Object mapping questionId to selectedOptionId
+   * Example: { "1": "uuid-1", "2": "uuid-2", "3": "uuid-3" }
+   */
+  async submitAnswersBatch(attemptId: number | string, answers: Record<number | string, number | string>) {
+    try {
+      // Convert answers object to array format expected by backend
+      const answersArray = Object.entries(answers).map(([questionId, selectedOptionId]) => ({
+        question_id: parseInt(String(questionId), 10), // Convert to number
+        selected_option_id: selectedOptionId,
+      }));
+
+      console.log(`📤 [API] Batch submitting ${answersArray.length} answers for attempt ${attemptId}`);
+      console.log(`📤 [API] Payload:`, { answers: answersArray });
+      
+      const response = await apiClient.post(
+        `/assessments/${attemptId}/answers`,
+        {
+          answers: answersArray,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      console.log(`✅ [API] Batch answers submitted successfully`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`❌ [API] Batch submit failed:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Finish an assessment attempt (submit and get score)
+   * @param attemptId - Attempt ID
+   * Returns: { score, correct_answers, total_questions, status, completed_at }
+   */
+  async finishAssessment(attemptId: number | string) {
+    try {
+      const response = await apiClient.post(
+        `/assessments/${attemptId}/finish`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get active attempt for an assessment (if exists)
+   * @param assessmentId - Assessment ID
+   */
+  async getActiveAttempt(assessmentId: number | string) {
+    try {
+      const response = await apiClient.get(`/assessments/${assessmentId}/attempt`);
+      return response.data;
+    } catch (error: any) {
+      // If 404 (no active attempt), return success: false instead of throwing error
+      if (error.response?.status === 404) {
+        console.log(`⚠️ [API] GET /assessments/${assessmentId}/attempt - 404 Not Found (no active attempt)`);
+        return {
+          success: false,
+          data: null,
+          message: 'No active attempt found'
+        };
+      }
+      
+      // For other errors, throw them
+      console.error(`❌ [API] GET /assessments/${assessmentId}/attempt - Error:`, error.response?.status, error.response?.data || error.message);
+      throw error;
+    }
+  },
+};
+
+// ============= Assessment Result Services =============
+
+export const assessmentResultService = {
+  /**
+   * Get all assessment results/history for current user
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 15)
+   */
+  async getAllResults(page: number = 1, perPage: number = 15) {
+    try {
+      console.log(`🔥 [API SERVICE] getAllResults called with page: ${page}, perPage: ${perPage}`);
+      console.log(`🔥 [API SERVICE] About to call apiClient.get('/results')`);
+      
+      const response = await apiClient.get('/results', {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      });
+      
+      console.log(`🔥 [API SERVICE] Response received from /results:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`🔥 [API SERVICE] Error in getAllResults:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get detailed result for a specific attempt
+   * @param attemptId - Attempt ID
+   * Returns: { score, correct_answers, total_questions, answers: [{question, selected, correct, is_correct}] }
+   */
+  async getResultDetail(attemptId: number | string) {
+    try {
+      const response = await apiClient.get(`/results/${attemptId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get active IN_PROGRESS attempt for a specific assessment by slug
+   * @param assessmentSlug - Assessment slug
+   * Returns: the active attempt if found, null otherwise
+   */
+  async getActiveAttemptBySlug(assessmentSlug: string) {
+    try {
+      console.log(`📋 [API] Fetching all results to find IN_PROGRESS attempt for slug: ${assessmentSlug}`);
+      const response = await apiClient.get('/results', {
+        params: {
+          page: 1,
+          per_page: 15,
+        },
+      });
+      
+      console.log(`✅ [API] Results fetched, total:`, response.data.pagination?.total);
+      
+      if (response.data.success && response.data.data && Array.isArray(response.data.data)) {
+        // Find the first IN_PROGRESS attempt for this assessment
+        const activeAttempt = response.data.data.find(
+          (result: any) => 
+            result.assessment?.slug === assessmentSlug && 
+            result.status === 'IN_PROGRESS'
+        );
+        
+        if (activeAttempt) {
+          console.log(`✅ Found IN_PROGRESS attempt for slug "${assessmentSlug}":`, activeAttempt.id);
+          return {
+            success: true,
+            data: activeAttempt,
+          };
+        } else {
+          console.log(`⚠️ No IN_PROGRESS attempt found for slug "${assessmentSlug}"`);
+          return {
+            success: false,
+            data: null,
+            message: 'No active IN_PROGRESS attempt found',
+          };
+        }
+      } else {
+        console.log(`⚠️ Invalid response structure from /results`);
+        return {
+          success: false,
+          data: null,
+          message: 'Invalid response structure',
+        };
+      }
+    } catch (error: any) {
+      console.error(`❌ [API] Error fetching results:`, error.response?.status, error.response?.data || error.message);
+      // Return gracefully instead of throwing
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || 'Error fetching results',
+      };
     }
   },
 };
