@@ -1,4 +1,5 @@
 import apiClient from './api-client';
+import { getCurrentUserId } from './utils';
 
 function setCookie(name: string, value: string, maxAgeSeconds = 60 * 60 * 24 * 7) {
   if (typeof document === 'undefined') {
@@ -382,19 +383,85 @@ export const assessmentService = {
    *   ]
    * }
    */
-  async bulkCreateQuestions(assessmentId: number | string, questions: Array<{
-    question: string;
-    options: Array<{
-      label: string;
-      text: string;
-      is_correct: boolean;
-    }>;
-  }>) {
+  /**
+   * Bulk create questions for assessment
+   * @param assessmentId - Assessment ID
+   * @param questions - Array of questions with options and optional images
+   */
+  async bulkCreateQuestions(
+    assessmentId: number | string,
+    questions: Array<{
+      question: string;
+      options: Array<{
+        label: string;
+        text: string;
+        is_correct: boolean;
+      }>;
+      image?: File | null;
+      imagePreview?: string;
+    }>
+  ) {
     try {
-      // Step 1: Create all questions at once
-      const formattedQuestions = questions.map(q => ({
-        text: q.question,
-      }));
+      // If any question includes an image, send multipart/form-data with indexed fields
+      const hasImage = questions.some((q) => q.image instanceof File);
+
+      if (hasImage) {
+        const fd = new FormData();
+
+        questions.forEach((q, idx) => {
+          fd.append(`questions[${idx}][text]`, q.question);
+          if (q.image) {
+            fd.append(`questions[${idx}][image]`, q.image as File);
+          }
+          // Append options as JSON string per index if backend expects options with question
+          if (q.options && q.options.length) {
+            fd.append(`questions[${idx}][options]`, JSON.stringify(q.options));
+          }
+        });
+
+        const response = await apiClient.post(
+          `/assessments/${assessmentId}/questions`,
+          fd,
+          {
+            headers: {
+              // Let the browser set Content-Type (multipart/form-data + boundary)
+            },
+          }
+        );
+
+        // Backend returns created questions in response.data.data.questions or data
+        const responseData = response.data.data || response.data;
+        const createdList = Array.isArray(responseData) ? responseData : responseData.questions || [];
+
+        // If options were not created by backend, attempt to create them per question
+        const results: any[] = [];
+
+        for (let i = 0; i < createdList.length; i++) {
+          const qData = createdList[i];
+          const opts = questions[i].options || [];
+
+          if (opts.length) {
+            try {
+              const optsResp = await apiClient.post(`/questions/${qData.id}/options`, { options: opts }, { headers: { 'Content-Type': 'application/json' } });
+              qData.options = optsResp.data.data || optsResp.data || [];
+            } catch (optErr) {
+              console.warn(`Failed to create options for question ${qData.id}:`, optErr);
+              qData.options = [];
+            }
+          }
+
+          results.push(qData);
+        }
+
+        return {
+          success: true,
+          message: 'Questions created successfully',
+          data: results,
+        };
+      }
+
+      // Fallback: no images, send JSON as before
+      const formattedQuestions = questions.map((q) => ({ text: q.question }));
 
       const questionsResponse = await apiClient.post(
         `/assessments/${assessmentId}/questions`,
@@ -406,21 +473,15 @@ export const assessmentService = {
         }
       );
 
-      // Response structure: { success, message, data: { total_created, questions: [...] } }
       const responseData = questionsResponse.data.data || questionsResponse.data;
-      const createdQuestionsList = Array.isArray(responseData) 
-        ? responseData 
-        : responseData.questions || [];
-      
+      const createdQuestionsList = Array.isArray(responseData) ? responseData : responseData.questions || [];
       const createdQuestions: any[] = [];
 
-      // Step 2: Create options for each question (send all options as array)
       for (let i = 0; i < createdQuestionsList.length; i++) {
         const questionData = createdQuestionsList[i];
         const questionId = questionData.id;
         const questionOptions = questions[i].options;
 
-        // Send all options at once as array
         const optionsResponse = await apiClient.post(
           `/questions/${questionId}/options`,
           { options: questionOptions },
@@ -431,7 +492,6 @@ export const assessmentService = {
           }
         );
 
-        // Parse options response - could be array or object with data property
         const optionsData = optionsResponse.data.data || optionsResponse.data;
         const createdOptions = Array.isArray(optionsData) ? optionsData : optionsData.options || [];
 
@@ -739,7 +799,7 @@ export const questionService = {
   /**
    * Create a new question for assessment
    * @param assessmentId - Assessment ID
-   * @param data - Question data (question, options array)
+   * @param data - Question data (question, options array) or FormData with image
    * Response structure:
    * {
    *   "success": true,
@@ -747,15 +807,19 @@ export const questionService = {
    *     "id": 1,
    *     "question": "What is the capital of France?",
    *     "assessment_id": 1,
+   *     "image_path": "path/to/image.jpg",
    *     "created_at": "2026-05-18T...",
    *     "updated_at": "2026-05-18T..."
    *   }
    * }
    */
-  async createQuestion(assessmentId: number | string, data: Record<string, any>) {
+  async createQuestion(assessmentId: number | string, data: Record<string, any> | FormData) {
     try {
+      const isFormData = data instanceof FormData;
       const response = await apiClient.post(`/assessments/${assessmentId}/questions`, data, {
-        headers: {
+        headers: isFormData ? {
+          // Let browser set Content-Type for FormData
+        } : {
           'Content-Type': 'application/json',
         },
       });
@@ -768,12 +832,15 @@ export const questionService = {
   /**
    * Update an existing question
    * @param id - Question ID
-   * @param data - Updated question data
+   * @param data - Updated question data or FormData with image
    */
-  async updateQuestion(id: number | string, data: Record<string, any>) {
+  async updateQuestion(id: number | string, data: Record<string, any> | FormData) {
     try {
+      const isFormData = data instanceof FormData;
       const response = await apiClient.put(`/questions/${id}`, data, {
-        headers: {
+        headers: isFormData ? {
+          // Let browser set Content-Type for FormData
+        } : {
           'Content-Type': 'application/json',
         },
       });
@@ -1044,6 +1111,7 @@ export const assessmentResultService = {
    * Get all assessment results/history for current user
    * @param page - Page number (default: 1)
    * @param perPage - Items per page (default: 15)
+   * Automatically filters by current user ID from cookie
    */
   async getAllResults(page: number = 1, perPage: number = 15) {
     try {
@@ -1058,6 +1126,22 @@ export const assessmentResultService = {
       });
       
       console.log(`🔥 [API SERVICE] Response received from /results:`, response.data);
+      
+      // Filter results by current user ID
+      const currentUserId = getCurrentUserId();
+      if (response.data.success && response.data.data && Array.isArray(response.data.data) && currentUserId) {
+        const filteredData = response.data.data.filter(
+          (result: any) => String(result.user_id) === currentUserId
+        );
+        
+        console.log(`🔥 [API SERVICE] Filtered ${filteredData.length} results for user ${currentUserId} from total ${response.data.data.length}`);
+        
+        return {
+          ...response.data,
+          data: filteredData,
+        };
+      }
+      
       return response.data;
     } catch (error) {
       console.error(`🔥 [API SERVICE] Error in getAllResults:`, error);
@@ -1082,6 +1166,7 @@ export const assessmentResultService = {
   /**
    * Get active IN_PROGRESS attempt for a specific assessment by slug
    * @param assessmentSlug - Assessment slug
+   * Automatically filters by current user ID from cookie
    * Returns: the active attempt if found, null otherwise
    */
   async getActiveAttemptBySlug(assessmentSlug: string) {
@@ -1097,21 +1182,25 @@ export const assessmentResultService = {
       console.log(`✅ [API] Results fetched, total:`, response.data.pagination?.total);
       
       if (response.data.success && response.data.data && Array.isArray(response.data.data)) {
-        // Find the first IN_PROGRESS attempt for this assessment
+        const currentUserId = getCurrentUserId();
+        console.log(`🔍 [API] Filtering results for user_id: ${currentUserId}`);
+        
+        // Find the first IN_PROGRESS attempt for this assessment AND current user
         const activeAttempt = response.data.data.find(
           (result: any) => 
             result.assessment?.slug === assessmentSlug && 
-            result.status === 'IN_PROGRESS'
+            result.status === 'IN_PROGRESS' &&
+            String(result.user_id) === currentUserId
         );
         
         if (activeAttempt) {
-          console.log(`✅ Found IN_PROGRESS attempt for slug "${assessmentSlug}":`, activeAttempt.id);
+          console.log(`✅ Found IN_PROGRESS attempt for slug "${assessmentSlug}" and user ${currentUserId}:`, activeAttempt.id);
           return {
             success: true,
             data: activeAttempt,
           };
         } else {
-          console.log(`⚠️ No IN_PROGRESS attempt found for slug "${assessmentSlug}"`);
+          console.log(`⚠️ No IN_PROGRESS attempt found for slug "${assessmentSlug}" and user ${currentUserId}`);
           return {
             success: false,
             data: null,

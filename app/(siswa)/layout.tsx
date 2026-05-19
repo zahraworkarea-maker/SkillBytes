@@ -1,11 +1,23 @@
 'use client'
 
+import { ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { Navbar } from '@/components/dashboard/navbar'
 
-export default function SiswaLayout({ children }: { children: React.ReactNode }) {
+interface SiswaLayoutProps {
+  children: ReactNode
+}
+
+export default function SiswaLayout({ children }: SiswaLayoutProps) {
+  const pathname = usePathname()
+
+  const hideNavbar =
+    pathname.includes('/assesmen/') &&
+    pathname.includes('/quiz')
+
   return (
     <>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       {children}
     </>
   )

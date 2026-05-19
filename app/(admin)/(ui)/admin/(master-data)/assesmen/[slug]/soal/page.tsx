@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { assessmentService } from '@/lib/api-services'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Loader, Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react'
+import { AlertCircle, Loader, Trash2, Plus, ChevronUp, ChevronDown, X, Image as ImageIcon } from 'lucide-react'
 import { toast } from 'react-toastify'
 
 interface Option {
@@ -21,12 +21,15 @@ interface Option {
 interface Question {
   question: string
   options: Option[]
+  image?: File | null
+  imagePreview?: string
 }
 
 export default function BulkQuestionsPage() {
   const router = useRouter()
   const params = useParams()
   const assessmentSlug = params.slug as string
+  const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({})
 
   const [assessment, setAssessment] = useState<any>(null)
   const [assessmentId, setAssessmentId] = useState<number | string | null>(null)
@@ -39,6 +42,8 @@ export default function BulkQuestionsPage() {
         { label: 'A', text: '', is_correct: false },
         { label: 'B', text: '', is_correct: false },
       ],
+      image: null,
+      imagePreview: '',
     },
   ])
 
@@ -116,6 +121,8 @@ export default function BulkQuestionsPage() {
           { label: 'A', text: '', is_correct: false },
           { label: 'B', text: '', is_correct: false },
         ],
+        image: null,
+        imagePreview: '',
       },
     ])
     setExpandedQuestions(new Set([...expandedQuestions, questions.length]))
@@ -127,6 +134,49 @@ export default function BulkQuestionsPage() {
       setExpandedQuestions(new Set([...expandedQuestions].filter(i => i !== questionIndex)))
     } else {
       toast.error('Minimal harus ada 1 soal')
+    }
+  }
+
+  const handleImageChange = (questionIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Harap pilih file gambar yang valid')
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Ukuran file gambar tidak boleh lebih dari 5MB')
+        return
+      }
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const updatedQuestions = [...questions]
+        updatedQuestions[questionIndex] = {
+          ...updatedQuestions[questionIndex],
+          image: file,
+          imagePreview: reader.result as string,
+        }
+        setQuestions(updatedQuestions)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeImage = (questionIndex: number) => {
+    const updatedQuestions = [...questions]
+    updatedQuestions[questionIndex] = {
+      ...updatedQuestions[questionIndex],
+      image: null,
+      imagePreview: '',
+    }
+    setQuestions(updatedQuestions)
+    if (fileInputRefs.current[questionIndex]) {
+      fileInputRefs.current[questionIndex]!.value = ''
     }
   }
 
@@ -293,6 +343,63 @@ export default function BulkQuestionsPage() {
                     value={question.question}
                     onChange={(e) => handleQuestionChange(questionIndex, e.target.value)}
                     className="min-h-20"
+                  />
+                </div>
+
+                {/* Image Upload */}
+                <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label className="font-semibold text-gray-700 flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-blue-600" />
+                    Foto Soal (Opsional)
+                  </Label>
+                  
+                  {!question.imagePreview ? (
+                    <div
+                      className="border-2 border-dashed border-blue-300 rounded-lg p-4 text-center cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => fileInputRefs.current[questionIndex]?.click()}
+                    >
+                      <ImageIcon className="h-8 w-8 text-blue-400 mx-auto mb-1" />
+                      <p className="text-sm text-gray-600">Klik untuk upload foto</p>
+                      <p className="text-xs text-gray-500">Max: 5MB</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative inline-block">
+                        <img
+                          src={question.imagePreview}
+                          alt="Preview"
+                          className="max-h-40 rounded-lg border border-blue-300"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-1 right-1"
+                          onClick={() => removeImage(questionIndex)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRefs.current[questionIndex]?.click()}
+                        className="border-blue-300 text-blue-600"
+                      >
+                        Ganti Foto
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <input
+                    ref={(el) => {
+                      if (el) fileInputRefs.current[questionIndex] = el
+                    }}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageChange(questionIndex, e)}
+                    className="hidden"
                   />
                 </div>
 

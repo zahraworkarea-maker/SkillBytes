@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader, AlertCircle, ChevronLeft, ChevronRight, Flag, CheckCircle2 } from 'lucide-react';
 import { assessmentService, assessmentAttemptService, assessmentResultService } from '@/lib/api-services';
@@ -8,6 +8,46 @@ import { AssessmentDetail } from '@/lib/types/assessment.types';
 import { useAssessmentTimer } from '@/hooks/use-assessment-timer';
 import { useAssessmentState } from '@/hooks/use-assessment-state';
 import { TimerDisplay, QuestionProgress, QuizQuestion } from '@/components/assesmen';
+
+// Error Boundary Component
+class AssessmentErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('❌ Error Boundary caught error:', error);
+    // Auto reload setelah 2 detik
+    setTimeout(() => {
+      console.log('🔄 Auto reloading due to error...');
+      window.location.reload();
+    }, 2000);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader className="w-10 h-10 text-red-600 animate-spin" />
+            <p className="text-gray-600">Terjadi kesalahan, sedang melakukan reload...</p>
+            <p className="text-sm text-gray-500">(Tunggu beberapa detik)</p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // Helper functions for localStorage
 const STORAGE_KEY_PREFIX = 'assessment_answers_';
@@ -45,18 +85,12 @@ const clearAnswersFromStorage = (attemptId: number) => {
   }
 };
 
-export default function AssessmentQuizPage() {
+function AssessmentQuizContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
   const attemptIdParam = searchParams.get('attemptId');
-
-  // Guard: useSearchParams is null during server render, only render after client-side hydration
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   // Track if initialization has been done (prevent multiple calls)
   const initializationAttempted = useRef(false);
@@ -118,6 +152,8 @@ export default function AssessmentQuizPage() {
         
         if (controller.signal.aborted) {
           console.log('⚠️ Initialization aborted after assessment fetch');
+          setLoading(false);
+          setDataReady(true);
           return;
         }
         
@@ -126,6 +162,7 @@ export default function AssessmentQuizPage() {
           console.error('❌ Assessment fetch failed, success:', assessmentRes.success);
           setError('Gagal memuat assessment');
           setLoading(false);
+          setDataReady(true); // ✅ Allow error screen to show
           return;
         }
         
@@ -144,6 +181,7 @@ export default function AssessmentQuizPage() {
             console.error('❌ Invalid attemptId in query params:', attemptIdParam);
             setError('Invalid attempt ID');
             setLoading(false);
+            setDataReady(true); // ✅ Allow error screen to show
             return;
           }
         } else {
@@ -154,6 +192,8 @@ export default function AssessmentQuizPage() {
           
           if (controller.signal.aborted) {
             console.log('⚠️ Initialization aborted after active attempt check');
+            setLoading(false);
+            setDataReady(true);
             return;
           }
 
@@ -169,12 +209,14 @@ export default function AssessmentQuizPage() {
               console.log('⚠️ Found attempt but status is not IN_PROGRESS:', activeAttempt.status);
               console.error('❌ No active IN_PROGRESS attempt found, redirecting to detail page');
               setLoading(false);
+              setDataReady(true); // ✅ Ensure state is ready before redirect
               router.push(`/assesmen/${slug}`);
               return;
             }
           } else {
             console.log('⚠️ No active attempt found, redirecting to detail page');
             setLoading(false);
+            setDataReady(true); // ✅ Ensure state is ready before redirect
             router.push(`/assesmen/${slug}`);
             return;
           }
@@ -208,6 +250,8 @@ export default function AssessmentQuizPage() {
       } catch (err: any) {
         if (controller.signal.aborted) {
           console.log('⚠️ Initialization cancelled/aborted');
+          setLoading(false);
+          setDataReady(true);
           return;
         }
         
@@ -221,6 +265,9 @@ export default function AssessmentQuizPage() {
         
         // ✅ Set loading to false on error
         setLoading(false);
+        
+        // ✅ CRITICAL FIX: Also set dataReady to true so error screen shows (not loading screen forever!)
+        setDataReady(true);
       } finally {
         // ✅ Cleanup only
         if (controller.signal.aborted) {
@@ -317,18 +364,6 @@ export default function AssessmentQuizPage() {
     [attemptId, assessment, assessmentState, showUnansweredWarning, slug, router]
   );
 
-  // Guard: wait for client-side hydration before rendering
-  if (!isClient) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader className="w-10 h-10 text-blue-600 animate-spin" />
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show loading while fetching data from network
   if (loading || !dataReady) {
     return (
@@ -350,12 +385,12 @@ export default function AssessmentQuizPage() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Terjadi Kesalahan</h1>
           <p className="text-gray-600 mb-6">{error || 'Gagal memulai assessment'}</p>
-          <button
-            onClick={() => router.push(`/assesmen/${slug}`)}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
-          >
-            Kembali
-          </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+            >
+              Reload
+            </button>
         </div>
       </div>
     );
@@ -367,157 +402,193 @@ export default function AssessmentQuizPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8 border border-gray-100">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-gray-900 truncate">{assessment.title}</h1>
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Main Content Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          
+          {/* LEFT SIDE - QUESTION */}
+          <div className="lg:col-span-3">
+            
+            {/* Question Card */}
+            <div className="bg-white rounded-lg shadow-md p-8 border border-gray-100">
+              <QuizQuestion
+                question={currentQuestion}
+                selectedOptionId={selectedOptionId}
+                isAnswered={isAnswered}
+                onSelectOption={handleSelectAnswer}
+                disabled={timer.isTimeUp}
+              />
             </div>
-            <TimerDisplay
-              timeRemaining={timer.timeRemaining}
-              status={timer.timeStatus}
-              formattedTime={timer.formattedTime}
-            />
-          </div>
 
-          <QuestionProgress
-            currentQuestion={assessmentState.currentQuestionIndex + 1}
-            totalQuestions={assessment.total_questions}
-            answeredCount={assessmentState.getAnsweredCount()}
-          />
-        </div>
-
-        {/* Time Up Warning */}
-        {timer.isTimeUp && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <p className="text-red-700">
-              <span className="font-bold">Waktu habis!</span> Assessment akan diselesaikan otomatis.
-            </p>
-          </div>
-        )}
-
-        {/* Resumed from Active Attempt Notification */}
-        {resumedFromActive && (
-          <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
-            <p className="text-blue-700">
-              <span className="font-bold">Melanjutkan attempt sebelumnya.</span> Jawaban Anda yang telah disimpan akan ditampilkan di bawah.
-            </p>
-          </div>
-        )}
-
-        {/* Unanswered Warning */}
-        {showUnansweredWarning && (
-          <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 mb-4">
-              <span className="font-bold">Perhatian:</span> Masih ada {assessment.total_questions - assessmentState.getAnsweredCount()} soal yang belum dijawab.
-            </p>
-            <div className="flex gap-2">
+            {/* Navigation Buttons */}
+            <div className="flex items-center justify-between gap-4 mt-6">
+              
+              {/* Previous */}
               <button
-                onClick={() => setShowUnansweredWarning(false)}
-                className="px-4 py-2 border border-yellow-300 text-yellow-700 rounded-lg font-medium hover:bg-yellow-100"
+                onClick={() => assessmentState.goToPreviousQuestion()}
+                disabled={assessmentState.currentQuestionIndex === 0}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Kembali Mengerjakan
+                <ChevronLeft className="w-5 h-5" />
+                Soal Sebelumnya
               </button>
-              <button
-                onClick={() => handleFinishAssessment(false)}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700"
-              >
-                Lanjutkan Selesai
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* Question */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-8 border border-gray-100">
-          <QuizQuestion
-            question={currentQuestion}
-            selectedOptionId={selectedOptionId}
-            isAnswered={isAnswered}
-            onSelectOption={handleSelectAnswer}
-            disabled={timer.isTimeUp}
-          />
-        </div>
+              {/* Counter */}
+              <div className="text-center px-4">
+                <p className="text-sm text-gray-600">
+                  Soal{' '}
+                  <span className="font-bold">
+                    {assessmentState.currentQuestionIndex + 1}
+                  </span>{' '}
+                  dari{' '}
+                  <span className="font-bold">
+                    {assessment.total_questions}
+                  </span>
+                </p>
+              </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Previous Button */}
-          <button
-            onClick={() => assessmentState.goToPreviousQuestion()}
-            disabled={assessmentState.currentQuestionIndex === 0}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            Soal Sebelumnya
-          </button>
-
-          {/* Question Counter */}
-          <div className="text-center px-4">
-            <p className="text-sm text-gray-600">
-              Soal <span className="font-bold">{assessmentState.currentQuestionIndex + 1}</span> dari{' '}
-              <span className="font-bold">{assessment.total_questions}</span>
-            </p>
-          </div>
-
-          {/* Next/Finish Button */}
-          {assessmentState.currentQuestionIndex === assessment.total_questions - 1 ? (
-            <button
-              onClick={() => handleFinishAssessment(false)}
-              disabled={isFinishingAssessment || timer.isTimeUp}
-              className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isFinishingAssessment ? (
-                <>
-                  <Loader className="w-5 h-5 animate-spin" />
-                  Menyelesaikan...
-                </>
+              {/* Next / Finish */}
+              {assessmentState.currentQuestionIndex ===
+              assessment.total_questions - 1 ? (
+                <button
+                  onClick={() => handleFinishAssessment(false)}
+                  disabled={isFinishingAssessment || timer.isTimeUp}
+                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isFinishingAssessment ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Menyelesaikan...
+                    </>
+                  ) : (
+                    <>
+                      <Flag className="w-5 h-5" />
+                      Selesaikan Assessment
+                    </>
+                  )}
+                </button>
               ) : (
-                <>
-                  <Flag className="w-5 h-5" />
-                  Selesaikan Assessment
-                </>
+                <button
+                  onClick={() => assessmentState.goToNextQuestion()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
+                >
+                  Soal Berikutnya
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               )}
-            </button>
-          ) : (
-            <button
-              onClick={() => assessmentState.goToNextQuestion()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2"
-            >
-              Soal Berikutnya
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
-        </div>
+            </div>
+          </div>
 
-        {/* Question Navigator Grid */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <p className="text-sm font-medium text-gray-700 mb-4">Navigasi Soal</p>
-          <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-            {assessment.questions.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => assessmentState.jumpToQuestion(index)}
-                className={`w-full aspect-square rounded-lg font-medium text-sm transition-all ${
-                  index === assessmentState.currentQuestionIndex
-                    ? 'bg-blue-600 text-white'
-                    : assessmentState.isQuestionAnswered(assessment.questions[index].id)
-                    ? 'bg-green-100 text-green-700 border border-green-300'
-                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                {assessmentState.isQuestionAnswered(assessment.questions[index].id) && index !== assessmentState.currentQuestionIndex ? (
-                  <CheckCircle2 className="w-4 h-4 mx-auto" />
-                ) : (
-                  index + 1
-                )}
-              </button>
-            ))}
+          {/* RIGHT SIDE - QUESTION NAVIGATOR */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-5 border border-gray-100 sticky top-6">
+              
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800">
+                  Navigasi Soal
+                </h3>
+
+                <span className="text-sm text-gray-500">
+                  {assessmentState.getAnsweredCount()}/
+                  {assessment.total_questions}
+                </span>
+              </div>
+
+              {/* Grid Navigator */}
+              <div className="grid grid-cols-4 gap-2">
+                {assessment.questions.map((_, index) => {
+                  const questionId = assessment.questions[index].id;
+
+                  const isCurrent =
+                    index === assessmentState.currentQuestionIndex;
+
+                  const isAnswered =
+                    assessmentState.isQuestionAnswered(questionId);
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => assessmentState.jumpToQuestion(index)}
+                      className={`aspect-square rounded-lg font-semibold text-sm transition-all duration-200 border ${
+                        isCurrent
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105'
+                          : isAnswered
+                          ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {isAnswered && !isCurrent ? (
+                        <CheckCircle2 className="w-4 h-4 mx-auto" />
+                      ) : (
+                        index + 1
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div className="mt-6 space-y-2 text-xs text-gray-600">
+                
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-blue-600"></div>
+                  <span>Soal Aktif</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
+                  <span>Sudah Dijawab</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-gray-100 border border-gray-300"></div>
+                  <span>Belum Dijawab</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function AssessmentLoadingFallback() {
+  const [countdown, setCountdown] = useState(4);
+
+  useEffect(() => {
+    // Countdown timer
+    if (countdown > 0) {
+      const countdownTimer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(countdownTimer);
+    } else {
+      // Reload setelah countdown selesai
+      console.log('⏱️ Loading timeout - auto reloading page...');
+      window.location.reload();
+    }
+  }, [countdown]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <Loader className="w-10 h-10 text-blue-600 animate-spin" />
+        <p className="text-gray-600">Mempersiapkan Assessment...</p>
+        <p className="text-sm text-gray-500">(Reload dalam {countdown} detik)</p>
+      </div>
+    </div>
+  );
+}
+
+// Main export with Error Boundary and Suspense
+export default function AssessmentQuizPage() {
+  return (
+    <AssessmentErrorBoundary>
+      <Suspense fallback={<AssessmentLoadingFallback />}>
+        <AssessmentQuizContent />
+      </Suspense>
+    </AssessmentErrorBoundary>
   );
 }

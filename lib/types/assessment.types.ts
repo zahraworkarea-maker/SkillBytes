@@ -16,6 +16,7 @@ export interface AssessmentQuestion {
   id: string | number;
   question: string;
   options: AssessmentOption[];
+  image_path?: string | null;
 }
 
 export interface Assessment {

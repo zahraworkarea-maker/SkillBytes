@@ -8,13 +8,12 @@ const QuestionService = (apiHandler) => {
 	 * @returns {Promise} Created question response with message and data
 	 */
 	async function create(assessmentId, req) {
-		return apiHandler(`/assessments/${assessmentId}/questions`, {
-			method: "POST",
-			data: req,
-			headers: {
-				"Content-Type": "application/json",
-			},
-		});
+			const isForm = typeof FormData !== 'undefined' && req instanceof FormData;
+			return apiHandler(`/assessments/${assessmentId}/questions`, {
+				method: "POST",
+				data: req,
+				headers: isForm ? {} : { "Content-Type": "application/json" },
+			});
 	}
 
 	/**
@@ -24,13 +23,12 @@ const QuestionService = (apiHandler) => {
 	 * @returns {Promise} Updated question response with message and data
 	 */
 	async function update(id, req) {
-		return apiHandler(`${url}/${id}`, {
-			method: "PUT",
-			data: req,
-			headers: {
-				"Content-Type": "application/json",
-			},
-		});
+			const isForm = typeof FormData !== 'undefined' && req instanceof FormData;
+			return apiHandler(`${url}/${id}`, {
+				method: "PUT",
+				data: req,
+				headers: isForm ? {} : { "Content-Type": "application/json" },
+			});
 	}
 
 	/**

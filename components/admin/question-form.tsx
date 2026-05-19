@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Loader, Trash2, Plus, Edit2 } from 'lucide-react'
+import { AlertCircle, Loader, Trash2, Plus, Edit2, X, Image as ImageIcon } from 'lucide-react'
 import { questionService, optionService } from '@/lib/api-services'
 import { toast } from 'react-toastify'
 
@@ -23,6 +23,7 @@ interface Question {
   question: string
   options: Option[]
   assessment_id?: number | string
+  image_path?: string
 }
 
 interface QuestionFormProps {
@@ -31,8 +32,11 @@ interface QuestionFormProps {
 }
 
 export default function QuestionForm({ assessmentId, onQuestionAdded }: QuestionFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     question: '',
+    image: null as File | null,
+    imagePreview: '' as string,
   })
 
   const [options, setOptions] = useState<Option[]>([
@@ -50,6 +54,46 @@ export default function QuestionForm({ assessmentId, onQuestionAdded }: Question
       question: e.target.value,
     })
     setError('')
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Harap pilih file gambar yang valid')
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Ukuran file gambar tidak boleh lebih dari 5MB')
+        return
+      }
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setFormData({
+          ...formData,
+          image: file,
+          imagePreview: reader.result as string,
+        })
+        setError('')
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeImage = () => {
+    setFormData({
+      ...formData,
+      image: null,
+      imagePreview: '',
+    })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleOptionChange = (index: number, field: string, value: string | boolean) => {
@@ -118,9 +162,24 @@ export default function QuestionForm({ assessmentId, onQuestionAdded }: Question
 
     setIsLoading(true)
     try {
-      const response = await questionService.createQuestion(assessmentId, {
+      // Prepare question data with FormData if image exists
+      let questionData: Record<string, any> = {
         question: formData.question,
-      })
+      }
+
+      let response
+      
+      if (formData.image) {
+        // Use FormData for file upload
+        const formDataObj = new FormData()
+        formDataObj.append('question', formData.question)
+        formDataObj.append('image', formData.image)
+        
+        response = await questionService.createQuestion(assessmentId, formDataObj)
+      } else {
+        // Use JSON for regular request
+        response = await questionService.createQuestion(assessmentId, questionData)
+      }
 
       if (response.success) {
         const questionId = response.data.id
@@ -139,12 +198,14 @@ export default function QuestionForm({ assessmentId, onQuestionAdded }: Question
           question: formData.question,
           options: options,
           assessment_id: assessmentId,
+          image_path: response.data.image_path,
         }
 
         setSuccess('Soal berhasil ditambahkan!')
-        setFormData({ question: '' })
+        setFormData({ question: '', image: null, imagePreview: '' })
         setOptions([{ label: 'A', text: '', is_correct: false }])
         setEditingOptionIndex(null)
+        removeImage()
 
         if (onQuestionAdded) {
           onQuestionAdded(newQuestion)
@@ -209,6 +270,69 @@ export default function QuestionForm({ assessmentId, onQuestionAdded }: Question
             <p className="text-sm text-gray-500">
               Jelaskan soal dengan detail dan jelas
             </p>
+          </div>
+
+          {/* Upload Foto Soal */}
+          <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <Label htmlFor="image-upload" className="font-semibold text-gray-700 flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-blue-600" />
+              Foto Soal (Opsional)
+            </Label>
+            
+            {!formData.imagePreview ? (
+              <div
+                className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:bg-blue-100 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon className="h-10 w-10 text-blue-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600 font-medium">
+                  Klik atau drag file untuk upload foto
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: JPG, PNG, WebP | Max: 5MB
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="relative inline-block">
+                  <img
+                    src={formData.imagePreview}
+                    alt="Preview soal"
+                    className="max-h-64 max-w-full rounded-lg border border-blue-300 shadow-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removeImage}
+                    disabled={isLoading}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                >
+                  Ganti Foto
+                </Button>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              id="image-upload"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+              disabled={isLoading}
+            />
           </div>
 
           {/* Jawaban/Opsi */}
