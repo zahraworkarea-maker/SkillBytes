@@ -3,30 +3,6 @@
 import { ClipboardList, Clock, User } from 'lucide-react'
 import { useInView } from '@/hooks/use-in-view'
 
-const statsData = [
-  {
-    label: 'Absence',
-    value: 90,
-    barColor: 'bg-blue-500',
-    icon: <User className="w-3.5 h-3.5 text-blue-500" />,
-    iconBg: 'bg-blue-100',
-  },
-  {
-    label: 'Tasks & Exam',
-    value: 70,
-    barColor: 'bg-green-500',
-    icon: <ClipboardList className="w-3.5 h-3.5 text-green-500" />,
-    iconBg: 'bg-green-100',
-  },
-  {
-    label: 'Quiz',
-    value: 85,
-    barColor: 'bg-orange-400',
-    icon: <Clock className="w-3.5 h-3.5 text-orange-400" />,
-    iconBg: 'bg-orange-100',
-  },
-]
-
 function CircularProgress({ value, size = 120, isInView }: { value: number; size?: number; isInView: boolean }) {
   const strokeWidth = 11
   const radius = (size - strokeWidth) / 2
@@ -55,17 +31,47 @@ function CircularProgress({ value, size = 120, isInView }: { value: number; size
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold text-gray-800">{value}%</span>
         <span className="text-xs text-gray-500 text-center leading-tight">
-          Grades
+          Overall
           <br />
-          Completed
+          Progress
         </span>
       </div>
     </div>
   )
 }
 
-export function Statistics() {
+export function Statistics({ dashboardData }: { dashboardData?: any }) {
   const { ref, isInView } = useInView()
+
+  // Calculate statistics from dashboardData
+  const materiProgress = dashboardData?.materials?.progress || 0
+  const assessmentProgress = dashboardData?.assessments?.progress || 0
+  const pblProgress = dashboardData?.pbl?.progress || 0
+  const overallProgress = Math.round((materiProgress + assessmentProgress + pblProgress) / 3)
+
+  const statsData = [
+    {
+      label: 'Materi',
+      value: materiProgress,
+      barColor: 'bg-blue-500',
+      icon: <User className="w-3.5 h-3.5 text-blue-500" />,
+      iconBg: 'bg-blue-100',
+    },
+    {
+      label: 'Assessment',
+      value: assessmentProgress,
+      barColor: 'bg-green-500',
+      icon: <ClipboardList className="w-3.5 h-3.5 text-green-500" />,
+      iconBg: 'bg-green-100',
+    },
+    {
+      label: 'Problem-Based Learning',
+      value: pblProgress,
+      barColor: 'bg-orange-400',
+      icon: <Clock className="w-3.5 h-3.5 text-orange-400" />,
+      iconBg: 'bg-orange-100',
+    },
+  ]
 
   return (
     <div ref={ref} className="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 animate-scale-in-delay-3 flex flex-col h-full">
@@ -108,7 +114,7 @@ export function Statistics() {
           ))}
         </div>
 
-        <CircularProgress value={75} size={100} isInView={isInView} />
+        <CircularProgress value={overallProgress} size={100} isInView={isInView} />
       </div>
     </div>
   )

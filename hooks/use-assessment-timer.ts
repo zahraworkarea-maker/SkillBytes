@@ -9,6 +9,7 @@ export function useAssessmentTimer({ initialTimeLimit, onTimeUp }: UseAssessment
   const [timeRemaining, setTimeRemaining] = useState(initialTimeLimit * 60); // convert to seconds
   const [isRunning, setIsRunning] = useState(true);
   const [isTimeUp, setIsTimeUp] = useState(false);
+  const [currentInitialLimit, setCurrentInitialLimit] = useState(initialTimeLimit);
 
   // Format time for display (MM:SS)
   const formatTime = useCallback((seconds: number): string => {
@@ -19,13 +20,13 @@ export function useAssessmentTimer({ initialTimeLimit, onTimeUp }: UseAssessment
 
   // Get time status: 'normal' | 'warning' | 'critical'
   const getTimeStatus = useCallback((): 'normal' | 'warning' | 'critical' => {
-    const totalSeconds = initialTimeLimit * 60;
+    const totalSeconds = currentInitialLimit * 60;
     const percentage = (timeRemaining / totalSeconds) * 100;
 
     if (percentage <= 10) return 'critical';
     if (percentage <= 25) return 'warning';
     return 'normal';
-  }, [timeRemaining, initialTimeLimit]);
+  }, [timeRemaining, currentInitialLimit]);
 
   // Timer effect
   useEffect(() => {
@@ -46,6 +47,16 @@ export function useAssessmentTimer({ initialTimeLimit, onTimeUp }: UseAssessment
     return () => clearInterval(interval);
   }, [isRunning, isTimeUp, onTimeUp]);
 
+  // Update currentInitialLimit and reset timeRemaining when initialTimeLimit changes
+  useEffect(() => {
+    console.log(`⏱️ Initial time limit changed from ${currentInitialLimit} to ${initialTimeLimit} minutes`);
+    setCurrentInitialLimit(initialTimeLimit);
+    // Reset timeRemaining to match new time_limit from database
+    setTimeRemaining(initialTimeLimit * 60);
+    setIsRunning(true);
+    setIsTimeUp(false);
+  }, [initialTimeLimit]);
+
   const pauseTimer = useCallback(() => {
     setIsRunning(false);
   }, []);
@@ -57,10 +68,10 @@ export function useAssessmentTimer({ initialTimeLimit, onTimeUp }: UseAssessment
   }, [isTimeUp]);
 
   const resetTimer = useCallback(() => {
-    setTimeRemaining(initialTimeLimit * 60);
+    setTimeRemaining(currentInitialLimit * 60);
     setIsRunning(true);
     setIsTimeUp(false);
-  }, [initialTimeLimit]);
+  }, [currentInitialLimit]);
 
   return {
     timeRemaining,

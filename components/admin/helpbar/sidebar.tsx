@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   HelpCircle,
@@ -63,13 +64,17 @@ const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => v
   return (
     <div className={`flex flex-col h-screen w-80 bg-white border-r border-gray-200 fixed left-0 top-0 z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-blue-400 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
-            </div>
-            <span className="font-bold text-lg text-gray-900">Prody</span>
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-2">
+          <div className="ml-5 flex items-center gap-2">
+            <Image
+              src="/nav-logo.png"
+              alt="SkillBytes Logo"
+              width={100}
+              height={40}
+              priority
+              style={{ width: 150, height: 60 }}
+            />
           </div>
           <Button
             variant="ghost"

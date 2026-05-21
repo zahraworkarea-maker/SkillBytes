@@ -51,7 +51,7 @@ export default function AssessmentDetailPage() {
       router.push(`/assesmen/${slug}/quiz`);
     } catch (err) {
       console.error('Error starting assessment:', err);
-      setError('Gagal memulai assessment');
+      setError('Tekan tombol start untuk memulai assessment');
       setIsStarting(false);
     }
   };

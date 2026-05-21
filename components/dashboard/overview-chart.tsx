@@ -12,18 +12,19 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-const overviewData = [
-  { month: 'Jan', materi: 40, assesmen: 30 },
-  { month: 'Feb', materi: 50, assesmen: 42 },
-  { month: 'Mar', materi: 73, assesmen: 58 },
-  { month: 'Apr', materi: 55, assesmen: 50 },
-  { month: 'May', materi: 63, assesmen: 52 },
-  { month: 'Jun', materi: 46, assesmen: 40 },
-  { month: 'Jul', materi: 30, assesmen: 25 },
-]
-
-export function OverviewChart() {
+export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
   const { ref, isInView } = useInView()
+
+  // Use real data from dashboardData, otherwise fallback to default
+  const overviewData = dashboardData?.monthlyStats || [
+    { month: 'Jan', materi: 40, assesmen: 30 },
+    { month: 'Feb', materi: 50, assesmen: 42 },
+    { month: 'Mar', materi: 73, assesmen: 58 },
+    { month: 'Apr', materi: 55, assesmen: 50 },
+    { month: 'May', materi: 63, assesmen: 52 },
+    { month: 'Jun', materi: 46, assesmen: 40 },
+    { month: 'Jul', materi: 30, assesmen: 25 },
+  ]
 
   return (
     <div ref={ref} className="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 animate-slide-up-delay-3 flex flex-col h-full">

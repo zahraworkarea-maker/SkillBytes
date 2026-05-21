@@ -16,43 +16,66 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import { toast } from 'react-toastify'
-import { assessmentService } from '@/lib/api-services'
+import { assessmentLevelService, assessmentService } from '@/lib/api-services'
 import { Assessment } from '@/lib/types/assessment.types'
+
+// Data assessment yang sudah digabung dengan informasi level
+interface AssessmentWithLevel extends Assessment {
+  levelDisplay: string   // teks yang akan ditampilkan di kolom level
+  levelNumber: number
+}
 
 export default function AssessmentManagementPage() {
   const router = useRouter()
-  const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [assessments, setAssessments] = useState<AssessmentWithLevel[]>([])
   const [loading, setLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
-  // Load assessments on mount
   useEffect(() => {
-    loadAssessments()
+    loadData()
   }, [])
 
-  const loadAssessments = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const response = await assessmentService.getAllAssessments(1, 100, globalFilter || undefined)
-      if (response.success && response.data) {
-        setAssessments(response.data)
+      // Ambil semua level beserta assessment di dalamnya
+      const levelRes = await assessmentLevelService.getAllAssessmentLevels(1, 100)
+      if (levelRes.success && levelRes.data) {
+        const levels = levelRes.data
+        const flattened: AssessmentWithLevel[] = []
+        for (const level of levels) {
+          // Tentukan teks level: gunakan "Level X" dengan X adalah level_number
+          // Bisa juga menggunakan level.description jika diinginkan
+          const levelDisplay = `Level ${level.level_number}`
+          if (level.assessments && level.assessments.length) {
+            for (const assessment of level.assessments) {
+              flattened.push({
+                ...assessment,
+                levelDisplay,
+                levelNumber: level.level_number,
+              })
+            }
+          }
+        }
+        setAssessments(flattened)
+      } else {
+        // Fallback: jika tidak ada data level, coba langsung ambil assessments (tanpa level)
+        const assessmentRes = await assessmentService.getAllAssessments(1, 100)
+        if (assessmentRes.success && assessmentRes.data) {
+          setAssessments(assessmentRes.data.map((a: Assessment) => ({ ...a, levelDisplay: '-', levelNumber: 0 })))
+        }
       }
     } catch (error: any) {
-      console.error('Error loading assessments:', error)
+      console.error('Error loading data:', error)
       toast.error('Gagal memuat data assessment')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAdd = () => {
-    router.push('/admin/assesmen/tambah')
-  }
-
-  const handleEdit = (slug: string) => {
-    router.push(`/admin/assesmen/${slug}/edit`)
-  }
+  const handleAdd = () => router.push('/admin/assesmen/tambah')
+  const handleEdit = (slug: string) => router.push(`/admin/assesmen/${slug}/edit`)
 
   const handleDelete = async (id: number) => {
     const Swal = (await import('sweetalert2')).default
@@ -63,43 +86,39 @@ export default function AssessmentManagementPage() {
       showCancelButton: true,
       confirmButtonText: 'Ya, Hapus',
       cancelButtonText: 'Tidak',
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
     })
-
     if (result.isConfirmed) {
       try {
         await assessmentService.deleteAssessment(id)
-        setAssessments(assessments.filter(assessment => assessment.id !== id))
+        setAssessments(prev => prev.filter(a => a.id !== id))
         toast.success('Assessment berhasil dihapus!')
-      } catch (error: any) {
-        console.error('Error deleting assessment:', error)
+      } catch {
         toast.error('Gagal menghapus assessment')
       }
     }
   }
 
-  const columns: ColumnDef<Assessment>[] = [
+  // Warna badge berdasarkan level number (opsional)
+  const getLevelBadgeClass = (levelNumber: number) => {
+    if (levelNumber === 1) return 'bg-green-100 text-green-800'
+    if (levelNumber === 2) return 'bg-yellow-100 text-yellow-800'
+    if (levelNumber === 3) return 'bg-orange-100 text-orange-800'
+    if (levelNumber >= 4) return 'bg-red-100 text-red-800'
+    return 'bg-gray-100 text-gray-800'
+  }
+
+  const columns: ColumnDef<AssessmentWithLevel>[] = [
     {
       accessorKey: 'title',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="hover:bg-white/20 text-white font-bold hover:text-blue-100 transition-colors duration-200"
-          >
-            Judul
-            {column.getIsSorted() === 'asc' ? (
-              <ArrowUp className="ml-2 h-4 w-4" />
-            ) : column.getIsSorted() === 'desc' ? (
-              <ArrowDown className="ml-2 h-4 w-4" />
-            ) : (
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            )}
-          </Button>
-        )
-      },
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting()}
+                className="hover:bg-white/20 text-white font-bold">
+          Judul
+          {column.getIsSorted() === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" />
+            : column.getIsSorted() === 'desc' ? <ArrowDown className="ml-2 h-4 w-4" />
+            : <ArrowUpDown className="ml-2 h-4 w-4" />}
+        </Button>
+      ),
     },
     {
       accessorKey: 'description',
@@ -109,18 +128,44 @@ export default function AssessmentManagementPage() {
       ),
     },
     {
+      accessorKey: 'levelDisplay',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting()}
+                className="hover:bg-white/20 text-white font-bold">
+          Level
+          {column.getIsSorted() === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" />
+            : column.getIsSorted() === 'desc' ? <ArrowDown className="ml-2 h-4 w-4" />
+            : <ArrowUpDown className="ml-2 h-4 w-4" />}
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const levelDisplay = row.original.levelDisplay
+        const levelNumber = row.original.levelNumber
+        const badgeClass = getLevelBadgeClass(levelNumber)
+        return (
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badgeClass}`}>
+            {levelDisplay}
+          </span>
+        )
+      },
+    },
+    {
       accessorKey: 'total_questions',
       header: 'Jumlah Soal',
       cell: ({ getValue }) => (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+        <span className="inline-flex px-3 py-1 rounded-full bg-purple-100 text-purple-800">
           {getValue<number>()} Soal
         </span>
       ),
     },
     {
       accessorKey: 'time_limit',
-      header: 'Waktu Limit (Menit)',
-      cell: ({ getValue }) => `${getValue<number>()} Menit`,
+      header: 'Waktu (Menit)',
+      cell: ({ getValue }) => {
+        const val = getValue<number>()
+        // Tampilkan waktu asli (atau kurangi 5 sesuai aturan bisnis)
+        return `${val - 5} Menit`
+      },
     },
     {
       id: 'actions',
@@ -156,94 +201,70 @@ export default function AssessmentManagementPage() {
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    state: {
-      sorting,
-      globalFilter,
-    },
+    state: { sorting, globalFilter },
   })
 
   return (
-    <div className="container mx-auto p-6 bg-linear-to-br from-blue-50 via-white to-blue-25 min-h-screen">
+    <div className="container mx-auto p-6 bg-gradient-to-br from-blue-50 via-white to-blue-100 min-h-screen">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
           Kelola Assessment
         </h1>
-        <Button
-          onClick={handleAdd}
-          className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          Tambah Assessment
+        <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
+          <Plus className="mr-2 h-5 w-5" /> Tambah Assessment
         </Button>
       </div>
 
-      {/* Search Input */}
-      <div className="mb-6 relative">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400 h-5 w-5" />
-          <Input
-            placeholder="Cari assessment..."
-            value={globalFilter ?? ''}
-            onChange={(event) => {
-              setGlobalFilter(String(event.target.value))
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                loadAssessments()
-              }
-            }}
-            className="pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 bg-white/80 backdrop-blur-sm shadow-sm"
-          />
-        </div>
+      <div className="mb-6 relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400 h-5 w-5" />
+        <Input
+          placeholder="Cari assessment..."
+          value={globalFilter ?? ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && loadData()}
+          className="pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl"
+        />
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader className="h-8 w-8 text-blue-600 animate-spin" />
+        <div className="flex justify-center h-64 items-center">
+          <Loader className="animate-spin h-8 w-8 text-blue-600" />
         </div>
       ) : (
-        <Table className="border-2 border-blue-200 rounded-2xl overflow-hidden shadow-2xl bg-white/90 backdrop-blur-sm">
-          <TableHeader className="bg-linear-to-r from-blue-600 to-blue-700">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-blue-500/10 transition-colors duration-200">
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="text-white font-bold py-5 px-6 text-left">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row, index) => (
-                <TableRow
-                  key={row.id}
-                  className={`hover:bg-linear-to-r hover:from-blue-50 hover:to-blue-25 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-md ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-blue-25/50'
-                  }`}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-5 px-6 text-gray-700 font-medium">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+        <div className="border-2 border-blue-200 rounded-2xl overflow-hidden shadow-2xl bg-white/90 backdrop-blur-sm">
+          <Table>
+            <TableHeader className="bg-gradient-to-r from-blue-600 to-blue-700">
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <TableHead key={header.id} className="text-white font-bold py-5 px-6">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-blue-600 py-12 text-lg font-medium">
-                  <div className="flex flex-col items-center space-y-2">
-                    <Search className="h-8 w-8 text-blue-300" />
-                    <span>Tidak ada data yang ditemukan</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row, idx) => (
+                  <TableRow key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id} className="py-5 px-6">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-32 text-center text-blue-600">
+                    Tidak ada data assessment
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   )

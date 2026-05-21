@@ -512,6 +512,92 @@ export const assessmentService = {
   },
 };
 
+// ============= Assessment Level Services =============
+
+export const assessmentLevelService = {
+  /**
+   * Get semua assessment levels dengan pagination
+   * @param page - Page number (default: 1)
+   * @param perPage - Items per page (default: 100)
+   * @param search - Search term (optional)
+   */
+  async getAllAssessmentLevels(page: number = 1, perPage: number = 100, search?: string) {
+    try {
+      const params: any = {
+        page,
+        per_page: perPage,
+      };
+      
+      if (search) {
+        params.search = search;
+      }
+      
+      const response = await apiClient.get('/assessment-levels', {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get assessment level berdasarkan ID
+   */
+  async getAssessmentLevelById(id: number | string) {
+    try {
+      const response = await apiClient.get(`/assessment-levels/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new assessment level
+   */
+  async createAssessmentLevel(data: Record<string, any>) {
+    try {
+      const response = await apiClient.post('/assessment-levels', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update an assessment level
+   */
+  async updateAssessmentLevel(id: number | string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.put(`/assessment-levels/${id}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete an assessment level
+   */
+  async deleteAssessmentLevel(id: number | string) {
+    try {
+      const response = await apiClient.delete(`/assessment-levels/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
 // ============= Materi/Levels Services =============
 
 export const materiService = {
@@ -548,6 +634,47 @@ export const materiService = {
   async getAllLevels() {
     try {
       const response = await apiClient.get('/levels/all');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get user's material progress including levels and lessons
+   * Response structure:
+   * {
+   *   userId: number,
+   *   totalLessons: number,
+   *   completedLessons: number,
+   *   progressPercentage: number,
+   *   levels: [
+   *     {
+   *       id: number,
+   *       level_number: number,
+   *       lessons: [
+   *         {
+   *           id: number,
+   *           slug: string,
+   *           level_id: number,
+   *           title: string,
+   *           description: string,
+   *           duration: string,
+   *           pdf_url: string,
+   *           completed: boolean,
+   *           created_at: string,
+   *           updated_at: string
+   *         }
+   *       ],
+   *       created_at: string,
+   *       updated_at: string
+   *     }
+   *   ]
+   * }
+   */
+  async getMyProgress() {
+    try {
+      const response = await apiClient.get('/my-progress');
       return response.data;
     } catch (error) {
       throw error;

@@ -4,40 +4,42 @@ import { BookOpen, ClipboardList, GraduationCap } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { useInView } from '@/hooks/use-in-view'
 
-const progressCards = [
-  {
-    id: 'materi',
-    icon: <BookOpen className="w-4 h-4 text-blue-500" />,
-    iconBg: 'bg-blue-50',
-    label: 'Materi Pembelajaran',
-    progress: 40,
-    sub: '4/10 Lesson',
-  },
-  {
-    id: 'assessment',
-    icon: <ClipboardList className="w-4 h-4 text-violet-500" />,
-    iconBg: 'bg-violet-50',
-    label: 'Assessment',
-    progress: 67,
-    sub: '2/3 Exam',
-  },
-  {
-    id: 'pbl',
-    icon: <GraduationCap className="w-4 h-4 text-cyan-500" />,
-    iconBg: 'bg-cyan-50',
-    label: 'Problem-Based Learning',
-    progress: 50,
-    sub: '1/2 Task',
-  },
-]
-
 interface ProgressCardsProps {
   activeCard: string
   onCardClick: (id: string) => void
+  dashboardData?: any
 }
 
-export function ProgressCards({ activeCard, onCardClick }: ProgressCardsProps) {
+export function ProgressCards({ activeCard, onCardClick, dashboardData }: ProgressCardsProps) {
   const { ref, isInView } = useInView()
+
+  // Use real data from dashboardData if available, otherwise fallback to defaults
+  const progressCards = [
+    {
+      id: 'materi',
+      icon: <BookOpen className="w-4 h-4 text-blue-500" />,
+      iconBg: 'bg-blue-50',
+      label: 'Materi Pembelajaran',
+      progress: dashboardData?.materials?.progress || 0,
+      sub: `${dashboardData?.materials?.completed || 0}/${dashboardData?.materials?.total || 0} Lesson`,
+    },
+    {
+      id: 'assessment',
+      icon: <ClipboardList className="w-4 h-4 text-violet-500" />,
+      iconBg: 'bg-violet-50',
+      label: 'Assessment',
+      progress: dashboardData?.assessments?.progress || 0,
+      sub: `${dashboardData?.assessments?.completed || 0}/${dashboardData?.assessments?.total || 0} Exam`,
+    },
+    {
+      id: 'pbl',
+      icon: <GraduationCap className="w-4 h-4 text-cyan-500" />,
+      iconBg: 'bg-cyan-50',
+      label: 'Problem-Based Learning',
+      progress: dashboardData?.pbl?.progress || 0,
+      sub: `${dashboardData?.pbl?.completed || 0}/${dashboardData?.pbl?.total || 0} Task`,
+    },
+  ]
 
   return (
     <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

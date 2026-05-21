@@ -276,7 +276,7 @@ export default function BulkQuestionsPage() {
           <p className="text-gray-600 mb-3">{assessment.description}</p>
           <div className="flex gap-4 text-sm flex-wrap">
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
-              Waktu Limit: {assessment.time_limit} Menit
+              Waktu Limit: {assessment.time_limit-5} Menit
             </span>
             <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full font-medium">
               Jumlah Soal: {questions.length}

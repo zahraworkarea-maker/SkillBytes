@@ -30,6 +30,16 @@ export interface Assessment {
   updated_at: string;
 }
 
+export interface AssessmentLevel {
+  id: number;
+  level_number: number;
+  name: string;
+  description?: string;
+  assessments: Assessment[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AssessmentDetail {
   id: number;
   title: string;
@@ -170,6 +180,12 @@ export interface AssessmentsResponse {
   pagination: PaginationMeta;
 }
 
+export interface AssessmentLevelsResponse {
+  success: boolean;
+  data: AssessmentLevel[];
+  pagination?: PaginationMeta;
+}
+
 export interface AssessmentDetailResponse {
   success: boolean;
   data: AssessmentDetail;
@@ -199,6 +215,7 @@ export interface CreateAssessmentPayload {
   description: string;
   time_limit: number;
   total_questions?: number;
+  assessment_level_id?: number | string;
 }
 
 export interface UpdateAssessmentPayload {
@@ -207,6 +224,7 @@ export interface UpdateAssessmentPayload {
   description: string;
   time_limit: number;
   slug?: string;
+  assessment_level_id?: number | string;
 }
 
 export type AssessmentFormPayload = Omit<CreateAssessmentPayload, 'id'> & {

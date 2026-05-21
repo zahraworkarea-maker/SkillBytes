@@ -284,7 +284,7 @@ export default function AssessmentDetailPage() {
       } else {
         setError(
           startResponse.message ||
-            'Gagal memulai assessment'
+            'Anda sudah siap?'
         );
       }
     } catch (err: any) {
@@ -295,7 +295,7 @@ export default function AssessmentDetailPage() {
 
       setError(
         err?.response?.data?.message ||
-          'Gagal memulai assessment'
+          'Anda sudah siap?'
       );
     } finally {
       setIsStarting(false);
@@ -318,14 +318,14 @@ export default function AssessmentDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="max-w-md text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <CheckCircle className="w-16 h-16 text-blue-500 mx-auto mb-4" />
 
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Gagal Memuat Assessment
+            Anda sudah siap?
           </h1>
 
           <p className="text-gray-600 mb-6">
-            {error}
+            Tekan tombol start jika sudah siap
           </p>
 
           <button
@@ -364,7 +364,7 @@ export default function AssessmentDetailPage() {
                 )}
               </h1>
 
-              <p className="text-lg text-gray-600 leading-relaxed">
+              <div className="text-lg text-gray-600 leading-relaxed">
                 {assessmentLoading || !assessment ? (
                   <div className="space-y-2">
                     <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
@@ -373,7 +373,7 @@ export default function AssessmentDetailPage() {
                 ) : (
                   assessment.description
                 )}
-              </p>
+              </div>
             </div>
 
             {/* USER RESULT */}
@@ -598,16 +598,16 @@ export default function AssessmentDetailPage() {
                       Batas Waktu
                     </p>
 
-                    <p className="text-lg font-bold text-gray-900">
+                    <div className="text-lg font-bold text-gray-900">
                       {assessmentLoading || !assessment ? (
                         <div className="h-6 bg-gray-200 rounded animate-pulse w-12"></div>
                       ) : (
                         <>
-                          {assessment.time_limit}{' '}
+                          {assessment.time_limit-5}{' '}
                           Menit
                         </>
                       )}
-                    </p>
+                    </div>
                   </div>
                 </div>
 
@@ -619,7 +619,7 @@ export default function AssessmentDetailPage() {
                       Total Soal
                     </p>
 
-                    <p className="text-lg font-bold text-gray-900">
+                    <div className="text-lg font-bold text-gray-900">
                       {assessmentLoading || !assessment ? (
                         <div className="h-6 bg-gray-200 rounded animate-pulse w-12"></div>
                       ) : (
@@ -630,7 +630,7 @@ export default function AssessmentDetailPage() {
                           Soal
                         </>
                       )}
-                    </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -686,19 +686,19 @@ export default function AssessmentDetailPage() {
 
               {/* FOOTER */}
               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-xs text-gray-600 text-center">
+                <div className="text-xs text-gray-600 text-center">
                   {assessmentLoading || !assessment ? (
                     <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
                   ) : (
                     <>
                       Anda akan diberi waktu{' '}
-                      {assessment.time_limit}{' '}
+                      {assessment.time_limit-5}{' '}
                       menit untuk menjawab semua
                       soal. Pertanyaan tidak dapat
                       dilewati.
                     </>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </div>

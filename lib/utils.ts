@@ -60,3 +60,43 @@ export function buildImageUrl(imagePath?: string | null) {
     return null
   }
 }
+
+/**
+ * Calculate days remaining from now to a deadline
+ * @param deadline - ISO string or Date object representing the deadline
+ * @returns Number of days remaining (can be negative if deadline has passed)
+ */
+export function calculateDaysRemaining(deadline?: string | Date | null): number {
+  if (!deadline) return 0
+  
+  try {
+    const deadlineDate = new Date(deadline)
+    const now = new Date()
+    
+    // Set time to 00:00:00 for both dates to count full days
+    now.setHours(0, 0, 0, 0)
+    deadlineDate.setHours(0, 0, 0, 0)
+    
+    const diffTime = deadlineDate.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    return diffDays
+  } catch (err) {
+    console.error('Error calculating days remaining:', err)
+    return 0
+  }
+}
+
+/**
+ * Format days remaining into a readable string
+ * @param daysRemaining - Number of days remaining
+ * @returns Formatted string (e.g., "Due today", "Due in 2 days", etc)
+ */
+export function formatDaysRemaining(daysRemaining: number): string {
+  if (daysRemaining < 0) return 'Overdue'
+  if (daysRemaining === 0) return 'Due today'
+  if (daysRemaining === 1) return 'Due tomorrow'
+  if (daysRemaining <= 7) return `Due in ${daysRemaining} days`
+  if (daysRemaining <= 14) return `Due in ${Math.ceil(daysRemaining / 7)} week${Math.ceil(daysRemaining / 7) > 1 ? 's' : ''}`
+  return `Due in ${Math.ceil(daysRemaining / 30)} month${Math.ceil(daysRemaining / 30) > 1 ? 's' : ''}`
+}

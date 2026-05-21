@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Loader } from 'lucide-react'
 import { CreateAssessmentPayload, UpdateAssessmentPayload, AssessmentFormPayload } from '@/lib/types/assessment.types'
+import { assessmentLevelService } from '@/lib/api-services'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface AssessmentFormProps {
   initialData?: UpdateAssessmentPayload & { slug?: string; title?: string; description?: string; time_limit?: number }
@@ -31,25 +33,64 @@ export default function AssessmentForm({
     slug: initialData?.slug || '',
     description: initialData?.description || '',
     time_limit: initialData?.time_limit || 30,
+    assessment_level_id: initialData?.assessment_level_id || '',
   })
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [levels, setLevels] = useState<any[]>([])
+  const [isLoadingLevels, setIsLoadingLevels] = useState(false)
+
+  // Konstanta untuk toleransi waktu (5 menit)
+  const TIME_TOLERANCE_MINUTES = 5
+
+  // Fetch assessment levels on component mount
+  useEffect(() => {
+    const fetchLevels = async () => {
+      try {
+        setIsLoadingLevels(true)
+        const response = await assessmentLevelService.getAllAssessmentLevels(1, 100)
+        if (response.success && response.data) {
+          setLevels(Array.isArray(response.data) ? response.data : [])
+        }
+      } catch (error) {
+        console.error('Error fetching assessment levels:', error)
+      } finally {
+        setIsLoadingLevels(false)
+      }
+    }
+
+    fetchLevels()
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    const updatedData = {
-      ...{ [name]: name === 'time_limit' ? parseInt(value) || 0 : value },
+    
+    if (name === 'time_limit') {
+      const numValue = parseInt(value) || 0
+      setFormData(prev => ({
+        ...prev,
+        time_limit: numValue
+      }))
+    } else if (name === 'title') {
+      setFormData(prev => ({
+        ...prev,
+        title: value,
+        slug: generateSlug(value)
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
     }
+    setError('')
+  }
 
-    // Auto-generate slug when title changes
-    if (name === 'title') {
-      updatedData.slug = generateSlug(value)
-    }
-
+  const handleLevelChange = (value: string) => {
     setFormData(prev => ({
       ...prev,
-      ...updatedData,
+      assessment_level_id: value ? parseInt(value) : '',
     }))
     setError('')
   }
@@ -60,7 +101,7 @@ export default function AssessmentForm({
       .replace(/\s+/g, '-')
       .replace(/[^\w-]/g, '')
       .replace(/-+/g, '-')
-      .trim('-')
+      .replace(/^-+|-+$/g, '')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,21 +131,32 @@ export default function AssessmentForm({
     }
 
     try {
-      const submitData =
-        mode === 'edit'
-          ? {
-              id: formData.id!,
-              title: formData.title,
-              description: formData.description,
-              time_limit: formData.time_limit,
-              slug: formData.slug,
-            }
-          : {
-              title: formData.title,
-              slug: formData.slug,
-              description: formData.description,
-              time_limit: formData.time_limit,
-            }
+      let submitData: any;
+      
+      // Tambahkan +5 menit untuk toleransi internet delay
+      const timeLimitWithTolerance = formData.time_limit + TIME_TOLERANCE_MINUTES;
+      
+      if (mode === 'edit') {
+        submitData = {
+          id: formData.id!,
+          title: formData.title,
+          description: formData.description,
+          time_limit: timeLimitWithTolerance,
+          slug: formData.slug,
+        }
+      } else {
+        submitData = {
+          title: formData.title,
+          slug: formData.slug,
+          description: formData.description,
+          time_limit: timeLimitWithTolerance,
+        }
+      }
+
+      // Add assessment_level_id if selected
+      if (formData.assessment_level_id) {
+        submitData.assessment_level_id = formData.assessment_level_id
+      }
 
       await onSubmit(submitData)
       setSuccess(`Assessment berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}!`)
@@ -116,6 +168,7 @@ export default function AssessmentForm({
           slug: '',
           description: '',
           time_limit: 30,
+          assessment_level_id: '',
         })
       }
     } catch (err: any) {
@@ -201,7 +254,39 @@ export default function AssessmentForm({
               disabled={isLoading}
               className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
             />
-            <p className="text-sm text-gray-500">Berapa menit waktu yang disediakan untuk mengerjakan</p>
+            <p className="text-sm text-gray-500">
+              Berapa menit waktu yang disediakan untuk mengerjakan (akan ditambah {TIME_TOLERANCE_MINUTES} menit untuk toleransi internet)
+            </p>
+          </div>
+
+          {/* Assessment Level Dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="assessment_level_id" className="font-semibold text-gray-700">
+              Level Assessment
+            </Label>
+            <Select
+              value={formData.assessment_level_id ? String(formData.assessment_level_id) : ''}
+              onValueChange={handleLevelChange}
+              disabled={isLoading || isLoadingLevels}
+            >
+              <SelectTrigger id="assessment_level_id" className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                <SelectValue placeholder="Pilih level assessment" />
+              </SelectTrigger>
+              <SelectContent>
+                {levels.length === 0 ? (
+                  <SelectItem value="_disabled" disabled>
+                    {isLoadingLevels ? 'Memuat levels...' : 'Tidak ada level tersedia'}
+                  </SelectItem>
+                ) : (
+                  levels.map((level: any) => (
+                    <SelectItem key={level.id} value={String(level.id)}>
+                      Level {level.level_number} - {level.description}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-gray-500">Pilih level untuk mengkategorikan assessment (opsional)</p>
           </div>
 
           {/* Form Actions */}
