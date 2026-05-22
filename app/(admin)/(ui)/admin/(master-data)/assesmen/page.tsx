@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, Loader } from 'lucide-react'
+import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, Loader, Eye } from 'lucide-react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -76,6 +76,7 @@ export default function AssessmentManagementPage() {
 
   const handleAdd = () => router.push('/admin/assesmen/tambah')
   const handleEdit = (slug: string) => router.push(`/admin/assesmen/${slug}/edit`)
+  const handleViewGrades = (slug: string) => router.push(`/admin/assesmen/${slug}/detail_nilai_siswa`)
 
   const handleDelete = async (id: number) => {
     const Swal = (await import('sweetalert2')).default
@@ -172,6 +173,15 @@ export default function AssessmentManagementPage() {
       header: 'Aksi',
       cell: ({ row }) => (
         <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewGrades(row.original.slug)}
+            className="border-green-300 hover:bg-green-50 hover:border-green-400 text-green-600 hover:text-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            title="Lihat Nilai Siswa"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
