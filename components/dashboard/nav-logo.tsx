@@ -8,7 +8,7 @@ export function NavLogo() {
         alt="SkillBytes Logo"
         width={100}
         height={100}
-        style={{ width: 'auto', height: 'auto' }}
+        style={{ width: '140', height: '57' }}
       />
     </div>
   )

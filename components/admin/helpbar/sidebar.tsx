@@ -66,14 +66,14 @@ const AdminSidebar = ({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => v
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <div className="ml-5 flex items-center gap-2">
+          <div className="ml-2 flex items-center gap-2">
             <Image
               src="/nav-logo.png"
               alt="SkillBytes Logo"
               width={100}
               height={40}
               priority
-              style={{ width: 150, height: 60 }}
+              style={{ width: 130, height: 50 }}
             />
           </div>
           <Button
