@@ -8,9 +8,10 @@ const UserService = (apiHandler) => {
 		});
 	}
 
-	async function retrieveAll() {
+	async function retrieveAll(params) {
 		return apiHandler(`${url}/all`, {
 			method: "GET",
+			params,
 		});
 	}
 

@@ -100,6 +100,10 @@ export default function AddSiswaPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [addFormDialogOpen, setAddFormDialogOpen] = useState(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
   // Check authorization - only guru and admin can access this page
   useEffect(() => {
     if (!isLoading && user) {
@@ -137,12 +141,14 @@ export default function AddSiswaPage() {
       );
       setFilteredUsers(filtered);
     }
+    // Reset to page 1 when search term changes
+    setCurrentPage(1);
   }, [searchTerm, siswaUsers]);
 
   const fetchSiswaUsers = async () => {
     try {
       setTableLoading(true);
-      const response = await userService.retrieve({ role: 'siswa' });
+      const response = await userService.retrieveAll({ role: 'siswa' });
 
       if (response.data) {
         const users = Array.isArray(response.data) ? response.data : response.data.data || [];
@@ -376,6 +382,13 @@ export default function AddSiswaPage() {
     setErrors({});
   };
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <>
       {/* Authorization Guard - Show loading while checking auth */}
@@ -469,7 +482,7 @@ export default function AddSiswaPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((siswa) => (
+                    {paginatedUsers.map((siswa) => (
                       <TableRow key={siswa.id} className="hover:bg-gray-50">
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-3">
@@ -515,6 +528,45 @@ export default function AddSiswaPage() {
                     ))}
                   </TableBody>
                 </Table>
+
+                {/* Pagination Controls */}
+                {filteredUsers.length > itemsPerPage && (
+                  <div className="flex items-center justify-between mt-6 pt-6 border-t">
+                    <div className="text-sm text-gray-600">
+                      Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+                      {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} students
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={currentPage === page ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
