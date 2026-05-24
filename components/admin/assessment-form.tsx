@@ -140,9 +140,9 @@ export default function AssessmentForm({
         submitData = {
           id: formData.id!,
           title: formData.title,
+          slug: formData.slug,
           description: formData.description,
           time_limit: timeLimitWithTolerance,
-          slug: formData.slug,
         }
       } else {
         submitData = {
@@ -219,6 +219,22 @@ export default function AssessmentForm({
             />
             <p className="text-sm text-gray-500">Contoh: Basic Math Quiz, General Knowledge Test</p>
           </div>
+
+          {/* slug */}
+          {/* <div className="space-y-2">
+            <Label htmlFor="title" className="font-semibold text-gray-700">
+              Slug
+            </Label>
+            <Input
+              id="slug"
+              name="slug"
+              placeholder=" "
+              value={formData.slug}
+              onChange={handleInputChange}
+              disabled= {true}
+              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div> */}
 
           {/* Deskripsi */}
           <div className="space-y-2">

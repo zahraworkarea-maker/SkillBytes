@@ -7,6 +7,7 @@ import { ProgressSection } from './progress-section';
 import { FilterTabs, type DifficultyFilter } from './filter-tabs';
 import { CaseCard, type CaseCardProps, levelConfig } from './case-card';
 import { pblService } from '@/lib/api-services';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Map difficulty level to numeric level
 const difficultyToLevel: Record<string, number> = {
@@ -177,10 +178,42 @@ export function PBLContent() {
 
   if (loading) {
     return (
-      <div className="w-full flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading PBL cases...</p>
+      <div className="w-full">
+        {/* Header Skeleton */}
+        <div className="mb-6 md:mb-8">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+
+        {/* Progress Section Skeleton */}
+        <div className="mb-6 md:mb-8 p-4 md:p-6 rounded-lg border bg-card">
+          <Skeleton className="h-4 w-32 mb-3" />
+          <div className="space-y-2">
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+
+        {/* Filter Tabs Skeleton */}
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          <Skeleton className="h-10 w-16 rounded-full flex-shrink-0" />
+          <Skeleton className="h-10 w-20 rounded-full flex-shrink-0" />
+          <Skeleton className="h-10 w-24 rounded-full flex-shrink-0" />
+          <Skeleton className="h-10 w-20 rounded-full flex-shrink-0" />
+        </div>
+
+        {/* Pagination Info Skeleton */}
+        <Skeleton className="h-4 w-64 mb-4" />
+
+        {/* Cases Grid Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 w-full">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="space-y-3">
+              <Skeleton className="h-48 md:h-64 w-full rounded-lg" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
         </div>
       </div>
     );

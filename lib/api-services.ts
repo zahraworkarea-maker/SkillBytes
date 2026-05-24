@@ -918,7 +918,36 @@ export const pblService = {
       throw error;
     }
   },
+  // Di dalam objek pblService, setelah method getSubmissionById atau di mana pun, tambahkan method berikut:
+
+  async getMySubmission() {
+    try {
+      const response = await apiClient.get('/pbl-submissions/me');
+      console.log('📦 [getMySubmission] Response:', response.data);
+      
+      // Handle berbagai kemungkinan struktur response dari Laravel
+      // Biasanya: { data: [...] }
+      if (response.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      // Jika langsung array
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      // Jika nested aneh
+      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        return response.data.data.data;
+      }
+      
+      console.warn('⚠️ Unexpected response structure, returning empty array');
+      return [];
+    } catch (error) {
+      console.error('❌ Error fetching my submissions:', error);
+      return []; // selalu return array kosong agar tidak crash
+    }
+  },
 };
+
 
 // ============= Question Services =============
 

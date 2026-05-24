@@ -19,6 +19,7 @@ import {
 } from '@/lib/api-services';
 
 import { AssessmentDetail } from '@/lib/types/assessment.types';
+import { AssessmentDetailLoadingSkeleton } from '@/components/ui/loading-skeleton';
 
 interface AssessmentResult {
   id: string;
@@ -310,6 +311,13 @@ export default function AssessmentDetailPage() {
       `/assesmen/${slug}/hasil?attemptId=${resultId}`
     );
   };
+
+  /**
+   * LOADING STATE - Show skeleton while fetching assessment
+   */
+  if (assessmentLoading && !assessment) {
+    return <AssessmentDetailLoadingSkeleton />;
+  }
 
   /**
    * ERROR

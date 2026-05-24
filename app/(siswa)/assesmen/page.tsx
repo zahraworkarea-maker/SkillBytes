@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader, AlertCircle, Clock, BookOpen, Lock, CheckCircle, Zap, Target, Trophy, Code } from 'lucide-react';
 import { assessmentLevelService, assessmentResultService } from '@/lib/api-services';
 import { Assessment, AssessmentLevel } from '@/lib/types/assessment.types';
+import { AssessmentListLoadingSkeleton } from '@/components/ui/loading-skeleton';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AssessmentsPage() {
@@ -115,19 +116,7 @@ export default function AssessmentsPage() {
 
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative w-16 h-16">
-            <Loader className="w-16 h-16 text-blue-600 animate-spin" />
-          </div>
-          <div className="text-center">
-            <p className="text-gray-700 font-semibold">Memuat Assessment...</p>
-            <p className="text-gray-500 text-sm mt-1">Mohon tunggu sebentar</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <AssessmentListLoadingSkeleton />;
   }
 
   return (

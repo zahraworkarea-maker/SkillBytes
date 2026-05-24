@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Edit, Trash2, Search, Plus, Upload, X, AlertCircle, ChevronDown, ChevronRight, Eye, FileText, CheckCircle2, Clock } from 'lucide-react'
 import { PBLSectionForm, PBLSectionItemForm, type PBLSectionFormData, type PBLSectionItemFormData } from '@/components/pbl'
+import { AdminPBLLoadingSkeleton } from '@/components/ui/loading-skeleton'
 import { toast } from 'react-toastify'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -140,6 +143,7 @@ interface StudentSubmission {
 }
 
 export default function PBLManagementPage() {
+  const router = useRouter()
   const [cases, setCases] = useState<PBLCase[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCase, setEditingCase] = useState<PBLCase | null>(null)
@@ -149,10 +153,7 @@ export default function PBLManagementPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [globalFilter, setGlobalFilter] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false)
-  const [submissions, setSubmissions] = useState<StudentSubmission[]>([])
-  const [selectedCaseForSubmission, setSelectedCaseForSubmission] = useState<PBLCase | null>(null)
-  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
 
   const [formData, setFormData] = useState<PBLCaseFormData>({
     title: '',
@@ -223,6 +224,8 @@ export default function PBLManagementPage() {
         console.error('Error fetching cases:', error)
         const errorMsg = error instanceof Error ? error.message : 'Unknown error'
         toast.error(`Gagal memuat PBL cases: ${errorMsg}`)
+      } finally {
+        setIsInitialLoading(false)
       }
     }
     fetchCases()
@@ -589,29 +592,9 @@ export default function PBLManagementPage() {
     }
   }
 
-  const handleViewSubmissions = async (pblCase: PBLCase) => {
-    setSelectedCaseForSubmission(pblCase)
-    setIsSubmissionDialogOpen(true)
-    setIsLoadingSubmissions(true)
-
-    try {
-      // Try to fetch submissions for this specific case
-      const data = await apiCall(`/pbl-submissions?pbl_case_id=${pblCase.id}`)
-      
-      if (data.data && Array.isArray(data.data)) {
-        setSubmissions(data.data)
-      } else if (Array.isArray(data)) {
-        setSubmissions(data)
-      } else {
-        setSubmissions([])
-      }
-    } catch (error) {
-      console.error('Error fetching submissions:', error)
-      // Don't show error toast, just show empty state
-      setSubmissions([])
-    } finally {
-      setIsLoadingSubmissions(false)
-    }
+  const handleViewSubmissions = (pblCase: PBLCase) => {
+    // Navigate to detail page with slug
+    router.push(`/admin/pbl/${pblCase.id}`)
   }
 
   const getStatusBadgeColor = (status: string) => {
@@ -670,6 +653,11 @@ export default function PBLManagementPage() {
     c.title.toLowerCase().includes(globalFilter.toLowerCase()) ||
     c.description.toLowerCase().includes(globalFilter.toLowerCase())
   )
+
+  // Show loading skeleton while fetching initial data
+  if (isInitialLoading) {
+    return <AdminPBLLoadingSkeleton />
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8">
@@ -903,78 +891,6 @@ export default function PBLManagementPage() {
         )}
       </div>
       </div>
-
-      {/* Submission Dialog */}
-      <Dialog open={isSubmissionDialogOpen} onOpenChange={setIsSubmissionDialogOpen}>
-        <DialogContent className="border-2 border-blue-200 bg-white/95 backdrop-blur-sm shadow-2xl max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader className="border-b-2 border-blue-200 pb-4">
-            <DialogTitle className="text-blue-900 text-xl font-bold">
-              📥 Pengumpulan Siswa - {selectedCaseForSubmission?.title}
-            </DialogTitle>
-            <DialogDescription>
-              Lihat semua pengumpulan dari siswa untuk case ini
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {isLoadingSubmissions ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">Memuat data pengumpulan...</p>
-              </div>
-            ) : submissions.length > 0 ? (
-              submissions.map((submission) => (
-                <Card key={submission.id} className="border border-blue-200 hover:shadow-md transition-all duration-300">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-gray-800">{submission.student_name}</h3>
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(submission.status)}`}>
-                            {getStatusIcon(submission.status)}
-                            {submission.status === 'submitted' && 'Dikumpulkan'}
-                            {submission.status === 'on-review' && 'Dalam Review'}
-                            {submission.status === 'returned' && 'Dikembalikan'}
-                            {submission.status === 'approved' && 'Disetujui'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          Disubmit: {new Date(submission.submitted_at).toLocaleString('id-ID')}
-                        </p>
-                        {submission.score !== undefined && (
-                          <p className="text-sm font-semibold text-blue-600 mt-2">
-                            Skor: {submission.score}/100
-                          </p>
-                        )}
-                        {submission.feedback && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-xs font-medium text-gray-700 mb-1">Feedback:</p>
-                            <p className="text-sm text-gray-600">{submission.feedback}</p>
-                          </div>
-                        )}
-                      </div>
-                      {submission.file_url && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                          onClick={() => window.open(submission.file_url, '_blank')}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Lihat File
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="text-center py-8 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/50">
-                <p className="text-gray-500">Belum ada pengumpulan dari siswa</p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* PBL Case Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

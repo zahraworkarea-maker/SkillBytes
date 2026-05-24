@@ -7,6 +7,7 @@ import { ContinueLearning } from '@/components/dashboard/continue-learning'
 import { StudentActivity } from '@/components/dashboard/student-activity'
 import { OverviewChart } from '@/components/dashboard/overview-chart'
 import { Statistics } from '@/components/dashboard/statistics'
+import { DashboardLoadingSkeleton } from '@/components/ui/loading-skeleton'
 import { LazyLoad } from '@/hooks/use-lazy-load'
 import { useDashboardData } from '@/hooks/use-dashboard-data'
 
@@ -29,6 +30,10 @@ const MemoizedStatistics = ({ dashboardData }: any) =>
 export default function DashboardPage() {
   const [activeCard, setActiveCard] = useState('materi')
   const { data: dashboardData, loading } = useDashboardData()
+
+  if (loading) {
+    return <DashboardLoadingSkeleton />
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">

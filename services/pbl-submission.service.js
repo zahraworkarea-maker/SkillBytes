@@ -30,11 +30,19 @@ const PBLSubmissionService = (apiHandler) => {
 		});
 	}
 
+	async function gradeSubmission(id, data) {
+		return apiHandler(`${url}/${id}/grade`, {
+			method: "PUT",
+			data,
+		});
+	}
+
 	return {
 		submit,
 		getSubmissions,
 		getSubmissionById,
 		getSubmissionDetails,
+		gradeSubmission,
 	};
 };
 

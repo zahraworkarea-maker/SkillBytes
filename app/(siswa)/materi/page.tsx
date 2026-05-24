@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MateriHeader } from '@/components/materi/materi-header'
 import { LevelSection } from '@/components/materi/level-section'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
+import { MateriLoadingSkeleton } from '@/components/ui/loading-skeleton'
 import { materiData, type Course } from '@/lib/materi-data'
 import { materiService } from '@/lib/api-services'
 import { transformBackendMateriToFrontend } from '@/lib/materi-transform'
@@ -45,14 +46,7 @@ export default function MateriPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
-          <p className="text-gray-600">Memuat data materi...</p>
-        </div>
-      </div>
-    )
+    return <MateriLoadingSkeleton />
   }
 
   return (
