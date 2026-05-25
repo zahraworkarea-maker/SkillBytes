@@ -263,13 +263,11 @@ export default function MateriDetailPage() {
 
   const durationMinutes = parseInt(lesson.duration) || 25
 
-  // Construct full file URL using NEXT_PUBLIC_IMAGE_URL
-  const backendFileUrl = lesson.file_url?.startsWith('http')
+  // Construct full file URL using explicit backend URL
+  const backendImageUrl = `${process.env.NEXT_PUBLIC_IMAGE_URL}`
+  const fullFileUrl = lesson.file_url?.startsWith('http')
     ? lesson.file_url
-    : `${process.env.NEXT_PUBLIC_IMAGE_URL}${lesson.file_url}`
-
-  // Use proxy route to avoid CORS issues
-  const fullFileUrl = `/api/pdf-proxy?url=${encodeURIComponent(backendFileUrl)}`
+    : `${backendImageUrl}${lesson.file_url}`
 
   return (
     <div className="min-h-screen bg-slate-50">

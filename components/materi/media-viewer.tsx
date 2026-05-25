@@ -44,14 +44,24 @@ const getFileType = (url: string): 'pdf' | 'video' | 'unknown' => {
 export function MediaViewer({ fileUrl, fileName }: MediaViewerProps) {
   const fileType = getFileType(fileUrl)
 
+  // Route PDF through proxy to avoid CORS issues
+  const getProxiedUrl = (url: string): string => {
+    if (!url) return url
+    // If already a relative URL (proxy), return as is
+    if (url.startsWith('/')) return url
+    // Otherwise, encode and route through proxy
+    return `/api/pdf-proxy?url=${encodeURIComponent(url)}`
+  }
+
   if (fileType === 'pdf') {
+    const proxiedUrl = getProxiedUrl(fileUrl)
     return (
       <div className="w-full">
         <div className="mb-4 flex items-center gap-2 text-slate-600">
           <FileText className="w-5 h-5 text-blue-500" />
           <span className="text-sm font-medium">File PDF</span>
         </div>
-        <PDFViewer pdfUrl={fileUrl} fileName={fileName} />
+        <PDFViewer pdfUrl={proxiedUrl} fileName={fileName} />
       </div>
     )
   }
