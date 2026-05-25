@@ -16,9 +16,10 @@ import {
   assessmentService,
   assessmentAttemptService,
   assessmentResultService,
+  assessmentLevelService,
 } from '@/lib/api-services';
 
-import { AssessmentDetail } from '@/lib/types/assessment.types';
+import { AssessmentDetail, AssessmentLevel, Assessment } from '@/lib/types/assessment.types';
 import { AssessmentDetailLoadingSkeleton } from '@/components/ui/loading-skeleton';
 
 interface AssessmentResult {
@@ -75,6 +76,22 @@ export default function AssessmentDetailPage() {
 
   const [showAllResults, setShowAllResults] =
     useState(false);
+
+  /**
+   * SEQUENTIAL LOCK STATE
+   */
+  const [isAssessmentLocked, setIsAssessmentLocked] =
+    useState(false);
+
+  const [lockedReason, setLockedReason] =
+    useState<string | null>(null);
+
+  const [allLevels, setAllLevels] = useState<
+    AssessmentLevel[]
+  >([]);
+
+  const [completedAssessmentIds, setCompletedAssessmentIds] =
+    useState<Set<number>>(new Set());
 
   /**
    * FETCH ASSESSMENT
@@ -220,10 +237,173 @@ export default function AssessmentDetailPage() {
   }, [slug]);
 
   /**
+   * CHECK SEQUENTIAL LOCK
+   * Memastikan assessment hanya bisa dikerjakan jika
+   * semua assessment sebelumnya dalam level yang sama sudah selesai
+   */
+  useEffect(() => {
+    if (!slug || typeof slug !== 'string') {
+      console.log('⏳ Waiting for slug to check lock:', slug);
+      return;
+    }
+
+    let isMounted = true;
+
+    const checkSequentialLock = async () => {
+      try {
+        console.log('🔍 Checking sequential lock for:', slug);
+
+        // Fetch all levels with their assessments
+        const levelsResponse =
+          await assessmentLevelService.getAllAssessmentLevels(1, 100);
+
+        if (!isMounted) return;
+
+        if (!levelsResponse.success) {
+          console.error('Failed to fetch levels for lock check');
+          return;
+        }
+
+        const levels: AssessmentLevel[] = levelsResponse.data;
+        setAllLevels(levels);
+
+        // Find which level contains the current assessment
+        let currentLevel: AssessmentLevel | null = null;
+        let currentAssessment: Assessment | null = null;
+
+        for (const level of levels) {
+          const found = level.assessments.find(
+            (a) => a.slug === slug
+          );
+          if (found) {
+            currentLevel = level;
+            currentAssessment = found;
+            break;
+          }
+        }
+
+        if (!currentLevel || !currentAssessment) {
+          console.warn('Could not find current assessment in levels');
+          return;
+        }
+
+        console.log(
+          '📍 Found assessment in level:',
+          currentLevel.level_number,
+          'Assessment:',
+          currentAssessment.title
+        );
+
+        // Fetch all user's completed assessments
+        const resultsResponse =
+          await assessmentResultService.getAllResults(1, 200);
+
+        if (!isMounted) return;
+
+        let resultsData = resultsResponse.data;
+
+        // Handle nested response
+        if (
+          resultsData &&
+          typeof resultsData === 'object' &&
+          !Array.isArray(resultsData) &&
+          'data' in resultsData
+        ) {
+          resultsData = resultsData.data;
+        }
+
+        // Build set of completed assessment IDs
+        const completed = new Set<number>();
+
+        if (Array.isArray(resultsData)) {
+          resultsData.forEach((r: any) => {
+            const status = r.status;
+            if (status === 'COMPLETED') {
+              const assessmentId =
+                r.assessment?.id || r.assessment_id;
+              if (assessmentId) completed.add(Number(assessmentId));
+            }
+          });
+        }
+
+        setCompletedAssessmentIds(completed);
+
+        console.log(
+          '✅ Completed assessments:',
+          Array.from(completed)
+        );
+
+        // Sort assessments in current level by ID to determine sequence
+        const sortedAssessments = [
+          ...currentLevel.assessments,
+        ].sort((a, b) => a.id - b.id);
+
+        const currentIndex = sortedAssessments.findIndex(
+          (a) => a.id === currentAssessment.id
+        );
+
+        console.log(
+          `📋 Current assessment index: ${currentIndex} of ${sortedAssessments.length}`
+        );
+
+        // Check if all previous assessments are completed
+        let isLocked = false;
+        let reason: string | null = null;
+
+        if (currentIndex > 0) {
+          for (let i = 0; i < currentIndex; i++) {
+            const previousAssessment = sortedAssessments[i];
+
+            if (!completed.has(previousAssessment.id)) {
+              isLocked = true;
+              reason = `Anda harus menyelesaikan "${previousAssessment.title}" terlebih dahulu sebelum mengerjakan assessment ini.`;
+              console.log('🔒 Assessment is locked:', reason);
+              break;
+            }
+          }
+        }
+
+        if (!isMounted) return;
+
+        setIsAssessmentLocked(isLocked);
+        setLockedReason(reason);
+
+        console.log(
+          isLocked ? '🔒 Assessment LOCKED' : '🔓 Assessment UNLOCKED'
+        );
+      } catch (err: any) {
+        console.error(
+          '❌ Error checking sequential lock:',
+          err
+        );
+
+        if (!isMounted) return;
+
+        setIsAssessmentLocked(false);
+        setLockedReason(null);
+      }
+    };
+
+    checkSequentialLock();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, allResults]);
+
+  /**
    * START / CONTINUE ASSESSMENT
    */
   const handleStartAssessment = async () => {
     if (!assessment) return;
+
+    /**
+     * CHECK IF ASSESSMENT IS LOCKED
+     */
+    if (isAssessmentLocked) {
+      setError(lockedReason || 'Assessment ini terkunci. Selesaikan assessment sebelumnya terlebih dahulu.');
+      return;
+    }
 
     try {
       setIsStarting(true);
@@ -656,6 +836,16 @@ export default function AssessmentDetailPage() {
                 </p>
               </div>
 
+              {/* LOCK MESSAGE */}
+              {isAssessmentLocked && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-700">
+                    {lockedReason || 'Assessment ini terkunci. Selesaikan assessment sebelumnya terlebih dahulu.'}
+                  </p>
+                </div>
+              )}
+
               {/* BUTTON */}
               {userResult?.status !==
                 'COMPLETED' && (
@@ -665,7 +855,8 @@ export default function AssessmentDetailPage() {
                   }
                   disabled={
                     isStarting ||
-                    resultsLoading
+                    resultsLoading ||
+                    isAssessmentLocked
                   }
                   className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >

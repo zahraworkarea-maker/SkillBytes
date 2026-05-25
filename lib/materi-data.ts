@@ -25,6 +25,8 @@ export interface Lesson {
   icon: IconType
   difficulty: DifficultyLevel
   completed?: boolean
+  inProgress?: boolean
+  hasCountdown?: boolean
   pdfUrl?: string
   description?: string
   duration?: string

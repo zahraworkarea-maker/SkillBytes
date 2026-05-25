@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Lock, CheckCircle2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import type { Lesson } from '@/lib/materi-data'
 
 interface CourseCardProps {
@@ -18,55 +17,77 @@ export function CourseCard({ lesson, courseId, levelNumber, isLocked = false, in
   const animationDelay = index === 0 ? '' : index === 1 ? 'animate-slide-up-delay-1' : 'animate-slide-up-delay-2'
   const imagePath = `/level/level${levelNumber}.png`
 
-  return (
-    <div
-      className={`bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all animate-slide-up ${animationDelay} relative overflow-hidden ${isLocked ? 'opacity-50 pointer-events-none' : ''}`}
-    >
-      <div className="flex items-stretch h-32 md:h-40">
-        {/* Left Side - Level Image */}
-        <div className="shrink-0 w-24 md:w-28 flex items-center justify-center bg-gray-50 relative">
-          <Image
-            src={imagePath}
-            alt={`Level ${levelNumber}`}
-            fill
-            className="object-contain p-2"
-          />
-        </div>
+  const cardContent = (
+    <div className="flex items-stretch h-32 md:h-40">
+      {/* Left Side - Level Image */}
+      <div className="shrink-0 w-24 md:w-28 flex items-center justify-center bg-gray-50 relative">
+        <Image
+          src={imagePath}
+          alt={`Level ${levelNumber}`}
+          fill
+          className="object-contain p-2"
+        />
+      </div>
 
-        {/* Right Side - Content */}
-        <div className="flex-1 flex flex-col p-4 md:p-5 relative pb-12">
-          <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-2 line-clamp-2">
-            {lesson.title}
-          </h3>
-          <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{lesson.description}</p>
+      {/* Right Side - Content */}
+      <div className="flex-1 flex flex-col p-4 md:p-5 relative">
+        <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-2 line-clamp-2">
+          {lesson.title}
+        </h3>
+        <p className="text-xs md:text-sm text-gray-500 line-clamp-1 mb-3">{lesson.description}</p>
 
-          {/* Badge Selesai Dibaca */}
-          {lesson.completed && (
-            <div className="flex items-center gap-1 mt-2">
+        {/* Status Badge */}
+        <div className="flex items-center gap-1 mt-auto">
+          {lesson.completed ? (
+            <>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
-              <span className="text-xs font-semibold text-green-600">Selesai Dibaca</span>
-            </div>
+              <span className="text-xs font-semibold text-green-600">Completed</span>
+            </>
+          ) : lesson.hasCountdown ? (
+            <>
+              <div className="w-4 h-4 border-2 border-amber-400 rounded-full animate-pulse" />
+              <span className="text-xs font-semibold text-amber-600">Sedang Dibaca</span>
+            </>
+          ) : lesson.inProgress ? (
+            <>
+              <div className="w-4 h-4 border-2 border-blue-400 rounded-full animate-pulse" />
+              <span className="text-xs font-semibold text-blue-500">In Progress</span>
+            </>
+          ) : (
+            <>
+              <div className="w-4 h-4 border-2 border-gray-300 rounded-full" />
+              <span className="text-xs font-semibold text-gray-400">Not Started</span>
+            </>
           )}
-
-          {/* Button - Bottom Right Corner */}
-          <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4">
-            {isLocked ? (
-              <div className="flex items-center justify-center bg-gray-300 text-white rounded-lg h-8 px-4 cursor-not-allowed">
-                <Lock className="w-4 h-4" />
-              </div>
-            ) : (
-              <Link href={`/materi/${lesson.id}`}>
-                <Button
-                  size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white text-xs md:text-sm h-8 px-4 rounded-lg"
-                >
-                  Baca
-                </Button>
-              </Link>
-            )}
-          </div>
         </div>
+
+        {/* Lock Icon - Top Right Corner */}
+        {isLocked && (
+          <div className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-gray-400" />
+          </div>
+        )}
       </div>
     </div>
+  )
+
+  if (isLocked) {
+    return (
+      <div
+        className={`bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all animate-slide-up ${animationDelay} relative overflow-hidden opacity-60 cursor-not-allowed`}
+      >
+        {cardContent}
+      </div>
+    )
+  }
+
+  return (
+    <Link href={`/materi/${lesson.id}`}>
+      <div
+        className={`bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-300 transition-all animate-slide-up ${animationDelay} relative overflow-hidden cursor-pointer hover:scale-105 duration-200`}
+      >
+        {cardContent}
+      </div>
+    </Link>
   )
 }

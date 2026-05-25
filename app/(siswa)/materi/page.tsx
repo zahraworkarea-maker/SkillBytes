@@ -13,6 +13,27 @@ export default function MateriPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [inProgressLessons, setInProgressLessons] = useState<string[]>([])
+  const [lessonsWithCountdown, setLessonsWithCountdown] = useState<string[]>([])
+
+  // Load in progress lessons and countdown data from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const lessons = JSON.parse(localStorage.getItem('inProgressLessons') || '[]')
+      setInProgressLessons(lessons)
+
+      // Check for countdown data - look for timer_* keys in localStorage
+      const countdownLessons: string[] = []
+      for (let key in localStorage) {
+        if (key.startsWith('timer_')) {
+          // Extract lesson ID from key: timer_{lessonId}
+          const lessonId = key.replace('timer_', '')
+          countdownLessons.push(lessonId)
+        }
+      }
+      setLessonsWithCountdown(countdownLessons)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchMateri = async () => {
@@ -24,11 +45,24 @@ export default function MateriPage() {
         const response = await materiService.getAllLevels()
         
         // Transform backend response ke format frontend
-        const transformedCourse = transformBackendMateriToFrontend(
+        let transformedCourse = transformBackendMateriToFrontend(
           response,
           'oop',
           'Pemrograman Berorientasi Objek'
         )
+
+        // Add inProgress flag to lessons and check for countdown
+        transformedCourse = {
+          ...transformedCourse,
+          levels: transformedCourse.levels.map(level => ({
+            ...level,
+            lessons: level.lessons.map(lesson => ({
+              ...lesson,
+              inProgress: inProgressLessons.includes(lesson.id),
+              hasCountdown: lessonsWithCountdown.includes(lesson.id)
+            }))
+          }))
+        }
         
         // Set courses dengan data dari backend
         setCourses([transformedCourse])
@@ -43,7 +77,7 @@ export default function MateriPage() {
     }
 
     fetchMateri()
-  }, [])
+  }, [inProgressLessons, lessonsWithCountdown])
 
   if (loading) {
     return <MateriLoadingSkeleton />

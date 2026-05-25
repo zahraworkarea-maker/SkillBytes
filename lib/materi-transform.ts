@@ -40,7 +40,7 @@ export interface BackendLessonResponse {
   title: string
   description: string
   duration: string
-  pdf_url: string
+  file_url: string
   completed: boolean
   created_at: string
   updated_at: string
@@ -78,7 +78,7 @@ export function transformBackendMateriToFrontend(
         title: lesson.title,
         description: lesson.description,
         duration: lesson.duration,
-        pdfUrl: lesson.pdf_url,
+        pdfUrl: lesson.file_url,
         completed: lesson.completed,
         icon: iconMapping[index % iconMapping.length],
         difficulty: difficultyMap[level.level_number],
@@ -94,7 +94,7 @@ export function transformBackendMateriToFrontend(
       title: lesson.title,
       description: lesson.description,
       duration: lesson.duration,
-      pdfUrl: lesson.pdf_url,
+      pdfUrl: lesson.file_url,
       completed: lesson.completed,
       icon: iconMapping[index % iconMapping.length],
       difficulty: difficultyMap[level.level_number],

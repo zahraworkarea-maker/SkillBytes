@@ -113,6 +113,30 @@ export default function AssessmentsPage() {
     return false;
   };
 
+  /**
+   * Check if a specific assessment is locked due to sequential ordering within its level
+   */
+  const isAssessmentSequentiallyLocked = (assessment: Assessment, level: AssessmentLevel): boolean => {
+    if (isAssessmentLocked(level.level_number)) {
+      return true; // Entire level is locked
+    }
+
+    // Sort assessments in level by ID to determine sequence
+    const sortedAssessments = [...level.assessments].sort((a, b) => a.id - b.id);
+    const currentIndex = sortedAssessments.findIndex(a => a.id === assessment.id);
+
+    // Check if all previous assessments in the same level are completed
+    if (currentIndex > 0) {
+      for (let i = 0; i < currentIndex; i++) {
+        if (!completedAssessments.has(sortedAssessments[i].id)) {
+          return true; // Previous assessment not completed
+        }
+      }
+    }
+
+    return false;
+  };
+
 
 
   if (loading) {
@@ -152,12 +176,12 @@ export default function AssessmentsPage() {
                   </div>
 
                   {/* Assessment Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {level.assessments.map((assessment) => (
                       <AssessmentCard
                         key={assessment.id}
                         assessment={assessment}
-                        isLocked={isAssessmentLocked(level.level_number)}
+                        isLocked={isAssessmentSequentiallyLocked(assessment, level)}
                         isCompleted={completedAssessments.has(assessment.id)}
                         onStart={handleStartAssessment}
                       />

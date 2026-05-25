@@ -619,7 +619,7 @@ export const materiService = {
    *           title: string,
    *           description: string,
    *           duration: string,
-   *           pdf_url: string,
+   *           file_url: string,
    *           completed: boolean,
    *           created_at: string,
    *           updated_at: string
@@ -660,7 +660,7 @@ export const materiService = {
    *           title: string,
    *           description: string,
    *           duration: string,
-   *           pdf_url: string,
+   *           file_url: string,
    *           completed: boolean,
    *           created_at: string,
    *           updated_at: string
@@ -733,24 +733,265 @@ export const materiService = {
   },
 
   /**
+   * Update atau tambahkan resume untuk lesson
+   * @param lessonSlug - Lesson slug atau ID
+   * @param data - Payload resume yang ingin disimpan
+   */
+  async updateLessonResume(lessonSlug: string, data: Record<string, any>) {
+    try {
+      const response = await apiClient.put(`/lessons/${lessonSlug}/resume`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
    * Get lesson detail berdasarkan lesson ID
    * Response structure:
    * {
-   *   data: [
-   *     {
-   *       id: string,
-   *       title: string,
-   *       description: string,
-   *       duration: string (dalam menit),
-   *       pdf_url: string,
-   *       completed: boolean
-   *     }
-   *   ]
+   *   success: true,
+   *   message: "Lesson retrieved successfully",
+   *   data: {
+   *     id: number,
+   *     slug: string,
+   *     level_id: number,
+   *     title: string,
+   *     description: string,
+   *     duration: string (dalam menit),
+   *     file_url: string,
+   *     resume: string|null,
+   *     completed: boolean,
+   *     created_at: string,
+   *     updated_at: string
+   *   }
    * }
    */
   async getLessonById(lessonId: string) {
     try {
       const response = await apiClient.get(`/lessons/${lessonId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Upload atau update file untuk lesson
+   * @param lessonId - Lesson ID atau slug
+   * @param file - File yang akan diupload (PDF, Word, dll)
+   * Response structure:
+   * {
+   *   "success": true,
+   *   "message": "File uploaded successfully",
+   *   "data": {
+   *     "id": "1",
+   *     "slug": "lesson-slug",
+   *     "title": "Lesson Title",
+   *     "file_url": "path/to/uploaded/file.pdf",
+   *     "file_name": "file.pdf",
+   *     "file_size": 1024000,
+   *     "updated_at": "2026-05-25T..."
+   *   }
+   * }
+   */
+  async uploadLessonFile(lessonId: string | number, file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await apiClient.post(
+        `/lessons/${lessonId}/upload-file`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update lesson dengan file attachment baru
+   * @param lessonId - Lesson ID atau slug
+   * @param data - Lesson data (title, description, duration, dll)
+   * @param file - Optional file untuk upload
+   */
+  async updateLesson(
+    lessonId: string | number,
+    data: Record<string, any>,
+    file?: File
+  ) {
+    try {
+      let body: FormData | Record<string, any>;
+      let headers: Record<string, string> = {};
+
+      if (file) {
+        body = new FormData();
+        Object.keys(data).forEach((key) => {
+          if (data[key] !== null && data[key] !== undefined) {
+            body.append(key, data[key]);
+          }
+        });
+        body.append('file', file);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        body = data;
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const response = await apiClient.put(`/lessons/${lessonId}`, body, {
+        headers,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete lesson file
+   * @param lessonId - Lesson ID atau slug
+   */
+  async deleteLessonFile(lessonId: string | number) {
+    try {
+      const response = await apiClient.delete(`/lessons/${lessonId}/file`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new lesson
+   * @param levelId - Level ID (akan dikirim di body sebagai level_id)
+   * @param data - Lesson data (title, description, duration, dll)
+   * @param file - Optional file untuk lesson
+   */
+  async createLesson(
+    levelId: string | number,
+    data: Record<string, any>,
+    file?: File
+  ) {
+    try {
+      let body: FormData | Record<string, any>;
+      let headers: Record<string, string> = {};
+
+      if (file) {
+        body = new FormData();
+        Object.keys(data).forEach((key) => {
+          if (data[key] !== null && data[key] !== undefined) {
+            body.append(key, data[key]);
+          }
+        });
+        body.append('file', file);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        body = data;
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const response = await apiClient.post(`/lessons`, body, {
+        headers,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a lesson
+   * @param lessonId - Lesson ID atau slug
+   */
+  async deleteLesson(lessonId: string | number) {
+    try {
+      const response = await apiClient.delete(`/lessons/${lessonId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// ============= User Resume Services =============
+
+export const userResumeService = {
+  /**
+   * Get semua resume user
+   */
+  async getAllResumes() {
+    try {
+      const response = await apiClient.get('/user/resumes');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get single resume berdasarkan ID
+   * @param resumeId - Resume ID
+   */
+  async getResumeById(resumeId: string | number) {
+    try {
+      const response = await apiClient.get(`/user/resumes/${resumeId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create resume baru untuk lesson
+   * @param lessonId - Lesson ID
+   * @param content - Resume content
+   */
+  async createResume(lessonId: string | number, content: string) {
+    try {
+      const response = await apiClient.post('/user/resumes', {
+        lesson_id: lessonId,
+        content: content,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Update resume
+   * @param resumeId - Resume ID
+   * @param lessonId - Lesson ID
+   * @param content - Resume content
+   */
+  async updateResume(resumeId: string | number, lessonId: string | number, content: string) {
+    try {
+      const response = await apiClient.put(`/user/resumes/${resumeId}`, {
+        lesson_id: lessonId,
+        content: content,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete resume
+   * @param resumeId - Resume ID
+   */
+  async deleteResume(resumeId: string | number) {
+    try {
+      const response = await apiClient.delete(`/user/resumes/${resumeId}`);
       return response.data;
     } catch (error) {
       throw error;

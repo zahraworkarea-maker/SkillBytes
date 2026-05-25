@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, BookOpen, Upload, X, Loader } from 'lucide-react'
+import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Search, Plus, BookOpen, Upload, X, Loader, Eye } from 'lucide-react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,8 +20,9 @@ import {
 } from '@tanstack/react-table'
 import { toast } from 'react-toastify'
 import apiClient from '@/lib/api-client'
+import { materiService } from '@/lib/api-services'
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024 // 1 MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
 type DifficultyLevel = '1' | '2' | '3'
 
 interface LevelMapping {
@@ -28,17 +30,7 @@ interface LevelMapping {
   level_id: number
 }
 
-const validatePdfFile = (file: File): { valid: boolean; error?: string } => {
-  // Check file extension
-  if (!file.name.toLowerCase().endsWith('.pdf')) {
-    return { valid: false, error: 'File harus berekstensi .pdf' }
-  }
-
-  // Check MIME type
-  if (file.type !== 'application/pdf') {
-    return { valid: false, error: 'Hanya file PDF yang diizinkan!' }
-  }
-
+const validateFile = (file: File): { valid: boolean; error?: string } => {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
     return { valid: false, error: `Ukuran file maksimal ${MAX_FILE_SIZE / 1024 / 1024}MB` }
@@ -48,6 +40,7 @@ const validatePdfFile = (file: File): { valid: boolean; error?: string } => {
 }
 
 export default function MateriManagementPage() {
+  const router = useRouter()
   const [lessons, setLessons] = useState<any[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingLesson, setEditingLesson] = useState<any | null>(null)
@@ -61,8 +54,8 @@ export default function MateriManagementPage() {
     level_id: '' as string,
     level_number: '1' as DifficultyLevel,
     duration: '',
-    pdfFile: null as File | null,
-    pdfUrl: '',
+    file: null as File | null,
+    fileUrl: '',
     description: '',
   })
 
@@ -110,8 +103,8 @@ export default function MateriManagementPage() {
       level_id: lesson.level_id?.toString() || levelMappings[0]?.level_id.toString() || '',
       level_number: lesson.level_number?.toString() || '1',
       duration: lesson.duration || '',
-      pdfFile: null,
-      pdfUrl: lesson.pdf_url || '',
+      file: null,
+      fileUrl: lesson.file_url || '',
       description: lesson.description || '',
     })
     setIsDialogOpen(true)
@@ -125,8 +118,8 @@ export default function MateriManagementPage() {
       level_id: firstLevelId,
       level_number: '1',
       duration: '',
-      pdfFile: null,
-      pdfUrl: '',
+      file: null,
+      fileUrl: '',
       description: '',
     })
     setIsDialogOpen(true)
@@ -167,29 +160,50 @@ export default function MateriManagementPage() {
 
     try {
       setIsSaving(true)
-      const submitData = new FormData()
-      
-      submitData.append('title', formData.title)
-      submitData.append('description', formData.description)
-      submitData.append('duration', formData.duration)
-      submitData.append('level_id', formData.level_id) // Kirim level_id ke backend
-      
-      if (formData.pdfFile) {
-        submitData.append('pdf_file', formData.pdfFile)
+      const submitData = {
+        title: formData.title,
+        description: formData.description,
+        duration: formData.duration,
+        level_id: formData.level_id,
       }
 
+      let lessonSlug: string
+
       if (editingLesson) {
-        // Update existing lesson
-        await apiClient.post(`/lessons/${editingLesson.slug}`, submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        // Update existing lesson (without file)
+        await materiService.updateLesson(
+          editingLesson.slug,
+          submitData
+        )
+        lessonSlug = editingLesson.slug
         toast.success('Materi berhasil diperbarui!')
       } else {
-        // Create new lesson
-        await apiClient.post('/lessons', submitData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        // Create new lesson (without file)
+        const response = await materiService.createLesson(
+          formData.level_id,
+          submitData
+        )
+        
+        // Handle various response structures from backend
+        const responseData = response.data || response
+        lessonSlug = responseData.slug || responseData.id
+        
+        if (!lessonSlug) {
+          throw new Error('Tidak dapat mendapatkan slug dari response server')
+        }
+        
         toast.success('Materi berhasil ditambahkan!')
+      }
+
+      // Upload file separately if provided
+      if (formData.file) {
+        try {
+          await materiService.uploadLessonFile(lessonSlug, formData.file)
+          toast.success('File berhasil diupload!')
+        } catch (fileError: any) {
+          console.error('Error uploading file:', fileError)
+          toast.error('Materi berhasil disimpan, tetapi gagal mengupload file')
+        }
       }
 
       setIsDialogOpen(false)
@@ -263,6 +277,15 @@ export default function MateriManagementPage() {
       header: 'Aksi',
       cell: ({ row }) => (
         <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/admin/materi/${row.original.slug}`)}
+            className="border-purple-300 hover:bg-purple-50 hover:border-purple-400 text-purple-600 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            title="Lihat Resume Siswa"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -446,7 +469,7 @@ export default function MateriManagementPage() {
               />
             </div>
             <div>
-              <Label htmlFor="pdfFile">File PDF</Label>
+              <Label htmlFor="file">File Materi</Label>
               <div
                 className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 onDrop={(e) => {
@@ -454,32 +477,32 @@ export default function MateriManagementPage() {
                   e.preventDefault()
                   const files = e.dataTransfer.files
                   if (files.length > 0) {
-                    const validation = validatePdfFile(files[0])
+                    const validation = validateFile(files[0])
                     if (validation.valid) {
-                      setFormData({ ...formData, pdfFile: files[0] })
-                      toast.success('File PDF berhasil dipilih!')
+                      setFormData({ ...formData, file: files[0] })
+                      toast.success('File berhasil dipilih!')
                     } else {
                       toast.error(validation.error)
                     }
                   }
                 }}
                 onDragOver={(e) => e.preventDefault()}
-                onClick={() => !isSaving && document.getElementById('pdfFileInput')?.click()}
+                onClick={() => !isSaving && document.getElementById('fileInput')?.click()}
               >
-                {formData.pdfFile ? (
+                {formData.file ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Upload className="w-5 h-5 text-blue-600" />
                       <div className="text-left">
-                        <p className="font-semibold text-gray-700">{formData.pdfFile.name}</p>
-                        <p className="text-sm text-gray-500">{(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="font-semibold text-gray-700">{formData.file.name}</p>
+                        <p className="text-sm text-gray-500">{(formData.file.size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setFormData({ ...formData, pdfFile: null })
+                        setFormData({ ...formData, file: null })
                       }}
                       disabled={isSaving}
                       className="text-red-600 hover:text-red-700 disabled:opacity-50"
@@ -490,22 +513,21 @@ export default function MateriManagementPage() {
                 ) : (
                   <div>
                     <Upload className="mx-auto w-8 h-8 text-blue-400 mb-2" />
-                    <p className="text-gray-700 font-medium">Drag and drop PDF di sini</p>
-                    <p className="text-sm text-gray-500">atau klik untuk memilih file</p>
+                    <p className="text-gray-700 font-medium">Drag and drop file di sini</p>
+                    <p className="text-sm text-gray-500">atau klik untuk memilih file (Max 100MB)</p>
                   </div>
                 )}
               </div>
               <input
-                id="pdfFileInput"
+                id="fileInput"
                 type="file"
-                accept=".pdf"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) {
-                    const validation = validatePdfFile(file)
+                    const validation = validateFile(file)
                     if (validation.valid) {
-                      setFormData({ ...formData, pdfFile: file })
-                      toast.success('File PDF berhasil dipilih!')
+                      setFormData({ ...formData, file: file })
+                      toast.success('File berhasil dipilih!')
                     } else {
                       toast.error(validation.error)
                     }

@@ -148,7 +148,7 @@ export function TimerCountdown({ lessonId, totalSeconds, durationMinutes, onComp
         <div className="flex items-center gap-3">
           <Clock className="w-6 h-6 text-blue-600" />
           <div>
-            <p className="text-sm font-medium text-blue-600 mb-1">Waktu Membaca Materi</p>
+            <p className="text-sm font-medium text-blue-600 mb-1">Waktu Belajar Materi</p>
             <p className="text-4xl font-bold text-blue-900">
               {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
             </p>
@@ -167,8 +167,8 @@ export function TimerCountdown({ lessonId, totalSeconds, durationMinutes, onComp
             </div>
           ) : (
             <div className="inline-block px-4 py-2 bg-amber-100 rounded-lg border border-amber-300">
-              <p className="text-sm font-bold text-amber-700">⏳ Membaca...</p>
-              <p className="text-xs text-amber-600 mt-1">Lanjutkan membaca</p>
+              <p className="text-sm font-bold text-amber-700">⏳ Belajar...</p>
+              <p className="text-xs text-amber-600 mt-1">Lanjutkan belajar</p>
             </div>
           )}
         </div>
