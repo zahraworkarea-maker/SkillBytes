@@ -174,7 +174,7 @@ export function CaseCard({
               className="w-full py-2 sm:py-2 md:py-3 bg-cyan-400 text-white rounded-lg font-bold text-xs sm:text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <Search size={16} className="sm:w-4 sm:h-4" />
-              Mulai Investigasi 🔍
+              Mulai Investigasi
             </button>
           )}
         </div>
