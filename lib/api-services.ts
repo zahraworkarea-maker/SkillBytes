@@ -1264,7 +1264,7 @@ export const questionService = {
    * Get question by ID
    * @param id - Question ID
    */
-  async getQuestionById(id: number | string) {
+  async getQuestionById(id: string) {
     try {
       const response = await apiClient.get(`/questions/${id}`);
       return response.data;
@@ -1273,6 +1273,73 @@ export const questionService = {
     }
   },
 };
+
+// ============= Knowledge Tracing Services =============
+
+export const knowledgeTracingService = {
+  /**
+   * Get mastery data for the logged-in student
+   */
+  async getStudentMastery() {
+    try {
+      const response = await apiClient.get('/user/kt/mastery');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get class average mastery for admin/teacher
+   */
+  async getClassMastery() {
+    try {
+      const response = await apiClient.get('/admin/kt/class-mastery');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get recommended lessons based on student's weaknesses
+   */
+  async getRecommendedLessons() {
+    try {
+      const response = await apiClient.get('/user/kt/recommendations');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get cumulative student mastery history over time
+   */
+  async getMasteryHistory() {
+    try {
+      const response = await apiClient.get('/user/kt/mastery/history');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get list of students at risk of failing
+   * @param levelId - Optional level ID to filter
+   */
+  async getStudentsAtRisk(levelId?: number | string) {
+    try {
+      const params = levelId ? { level_id: levelId } : {};
+      const response = await apiClient.get('/admin/kt/students-at-risk', { params });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
 
 // ============= Option Services =============
 
@@ -1386,6 +1453,39 @@ export const assessmentAttemptService = {
       return response.data;
     } catch (error: any) {
       console.error(`❌ [API] POST /assessments/${assessmentId}/start - Error:`, error.response?.status, error.response?.data || error.message);
+      throw error;
+    }
+  },
+  /**
+   * Get the next adaptive question based on mastery
+   * @param attemptId - Attempt ID
+   */
+  async getNextQuestion(attemptId: number | string) {
+    try {
+      // TODO: Ganti ke endpoint riil jika BE DKT sudah siap
+      // const response = await apiClient.get(`/assessments/${attemptId}/next-question`);
+      // return response.data;
+      
+      console.log(`[MOCK DKT] Getting next question for attempt ${attemptId}...`);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Dummy response
+      return {
+        success: true,
+        data: {
+          id: Math.floor(Math.random() * 1000) + 100, // random question ID
+          text: `[DKT MOCK] Pertanyaan Adaptif. Ini adalah pertanyaan yang di-generate berdasarkan mastery Anda. (Skill ID: ${Math.floor(Math.random() * 5) + 1})`,
+          options: [
+            { id: 1, label: 'a', text: 'Opsi A (Mungkin benar)' },
+            { id: 2, label: 'b', text: 'Opsi B (Mungkin salah)' },
+            { id: 3, label: 'c', text: 'Opsi C (Pengecoh)' },
+            { id: 4, label: 'd', text: 'Opsi D (Sembarang)' },
+          ]
+        }
+      };
+    } catch (error) {
+      console.error(`❌ [API] GET /assessments/${attemptId}/next-question - Error:`, error);
       throw error;
     }
   },

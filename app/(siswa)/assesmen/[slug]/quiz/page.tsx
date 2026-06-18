@@ -119,7 +119,6 @@ function AssessmentQuizContent() {
   const slug = params.slug as string;
   const attemptIdParam = searchParams.get('attemptId');
 
-  const initializationAttempted = useRef(false);
   const abortController = useRef<AbortController | null>(null);
   const handleFinishRef = useRef<((autoFinish?: boolean) => Promise<void>) | null>(null);
   const answersRef = useRef<Record<number | string, number | string>>({});
@@ -144,42 +143,8 @@ function AssessmentQuizContent() {
   const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
   const [timerStartTime, setTimerStartTime] = useState<number>(Date.now());
 
-  // Auto-reload effect when loading too long
-  useEffect(() => {
-    if (!loading) return;
-
-    const checkLoadingDuration = setInterval(() => {
-      const loadingDuration = (Date.now() - loadingStartTimeRef.current) / 1000;
-      
-      if (loadingDuration >= 3 && reloadAttemptsRef.current < 3) {
-        reloadAttemptsRef.current += 1;
-        console.log(`⏱️ Loading for ${loadingDuration} seconds, auto-reloading (attempt ${reloadAttemptsRef.current})...`);
-        
-        // Start countdown
-        let countdown = 3;
-        setReloadCountdown(countdown);
-        
-        const countdownInterval = setInterval(() => {
-          countdown -= 1;
-          setReloadCountdown(countdown);
-          
-          if (countdown <= 0) {
-            clearInterval(countdownInterval);
-            window.location.reload();
-          }
-        }, 1000);
-        
-        clearInterval(checkLoadingDuration);
-      } else if (loadingDuration >= 3 && reloadAttemptsRef.current >= 3) {
-        // After 3 attempts, show error message
-        setError('Gagal memuat assessment setelah beberapa percobaan. Silakan refresh halaman secara manual.');
-        setLoading(false);
-        clearInterval(checkLoadingDuration);
-      }
-    }, 1000);
-
-    return () => clearInterval(checkLoadingDuration);
-  }, [loading]);
+  // Auto-reload effect has been removed to prevent infinite loops and premature reloads.
+  // The API should be allowed to take as much time as it needs without forcing a page reload.
 
   // Fungsi untuk update timer UI
   const updateTimerUI = useCallback((remaining: number) => {
@@ -256,8 +221,6 @@ function AssessmentQuizContent() {
   });
 
   useEffect(() => {
-    if (initializationAttempted.current) return;
-    initializationAttempted.current = true;
     loadingStartTimeRef.current = Date.now();
 
     const controller = new AbortController();
@@ -454,6 +417,14 @@ function AssessmentQuizContent() {
     handleFinishRef.current = handleFinishAssessment;
   }, [handleFinishAssessment]);
 
+  // Efek untuk memicu auto-submit secara reliable ketika waktu habis
+  useEffect(() => {
+    if (isTimeUp && dataReady && attemptId && assessment && !isFinishingAssessment) {
+      console.log('⏳ isTimeUp is true, triggering auto-submit via effect...');
+      handleFinishAssessment(true);
+    }
+  }, [isTimeUp, dataReady, attemptId, assessment, isFinishingAssessment, handleFinishAssessment]);
+
   // ─── handleSelectAnswer ───────────────────────────────────────────────────
   const handleSelectAnswer = useCallback(
     (optionId: number | string) => {
@@ -600,7 +571,7 @@ function AssessmentQuizContent() {
               <button
                 onClick={() => assessmentState.goToPreviousQuestion()}
                 disabled={assessmentState.currentQuestionIndex === 0 || isFinishingAssessment}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <ChevronLeft className="w-5 h-5" />
                 Soal Sebelumnya
@@ -617,7 +588,7 @@ function AssessmentQuizContent() {
               {assessmentState.currentQuestionIndex === assessment.total_questions - 1 ? (
                 <button
                   onClick={() => handleFinishAssessment(false)}
-                  disabled={isFinishingAssessment || isTimeUp}
+                  disabled={isFinishingAssessment}
                   className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isFinishingAssessment ? (
@@ -635,10 +606,10 @@ function AssessmentQuizContent() {
               ) : (
                 <button
                   onClick={() => assessmentState.goToNextQuestion()}
-                  disabled={isFinishingAssessment}
+                  disabled={isFinishingAssessment || !isAnswered}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                 >
-                  Soal Berikutnya
+                  {isFinishingAssessment ? <Loader className="w-5 h-5 animate-spin" /> : "Selanjutnya"}
                   <ChevronRight className="w-5 h-5" />
                 </button>
               )}
@@ -658,51 +629,45 @@ function AssessmentQuizContent() {
             <div className="bg-white rounded-lg shadow-md p-5 border border-gray-100 sticky top-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800">Navigasi Soal</h3>
-                <span className="text-sm text-gray-500">
-                  {assessmentState.getAnsweredCount()}/{assessment.total_questions}
-                </span>
               </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                {assessment.questions.map((q, index) => {
-                  const isCurrent = index === assessmentState.currentQuestionIndex;
-                  const isQAnswered = assessmentState.isQuestionAnswered(q.id);
-
+              <div className="p-3 mb-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-800 text-center">
+                <p className="font-semibold mb-1">🧠 DKT Mode Active</p>
+                <p className="text-xs">Pertanyaan dievaluasi secara dinamis.</p>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {assessment.questions.map((q, idx) => {
+                  const answered = assessmentState.isQuestionAnswered(q.id);
+                  const current = assessmentState.currentQuestionIndex === idx;
                   return (
                     <button
                       key={q.id}
-                      onClick={() => assessmentState.jumpToQuestion(index)}
+                      onClick={() => assessmentState.jumpToQuestion(idx)}
                       disabled={isFinishingAssessment}
-                      className={`aspect-square rounded-lg font-semibold text-sm transition-all duration-200 border ${
-                        isCurrent
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105'
-                          : isQAnswered
-                          ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                      className={`w-10 h-10 rounded-lg font-medium flex items-center justify-center transition-colors ${
+                        current
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                          : answered
+                          ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
                       }`}
                     >
-                      {isQAnswered && !isCurrent ? (
-                        <CheckCircle2 className="w-4 h-4 mx-auto" />
-                      ) : (
-                        index + 1
-                      )}
+                      {idx + 1}
                     </button>
                   );
                 })}
               </div>
-
-              <div className="mt-6 space-y-2 text-xs text-gray-600">
+              <div className="mt-6 space-y-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-blue-600" />
-                  <span>Soal Aktif</span>
+                  <div className="w-4 h-4 bg-blue-600 rounded"></div>
+                  <span>Sedang dikerjakan</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-green-100 border border-green-300" />
-                  <span>Sudah Dijawab</span>
+                  <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                  <span>Sudah dijawab</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-gray-100 border border-gray-300" />
-                  <span>Belum Dijawab</span>
+                  <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
+                  <span>Belum dijawab</span>
                 </div>
               </div>
             </div>
@@ -712,43 +677,13 @@ function AssessmentQuizContent() {
     </div>
   );
 }
-
 // ─── Loading Fallback ─────────────────────────────────────────────────────────
 function AssessmentLoadingFallback() {
-  const [countdown, setCountdown] = useState(4);
-  const reloadAttemptsRef = useRef(0);
-
-  useEffect(() => {
-    if (countdown > 0) {
-      const t = setTimeout(() => setCountdown(c => c - 1), 1000);
-      return () => clearTimeout(t);
-    }
-    
-    reloadAttemptsRef.current += 1;
-    if (reloadAttemptsRef.current < 3) {
-      window.location.reload();
-    } else {
-      // After 3 attempts, show manual refresh message
-      const messageDiv = document.createElement('div');
-      messageDiv.className = 'fixed inset-0 flex items-center justify-center bg-white z-50';
-      messageDiv.innerHTML = `
-        <div class="text-center p-6 bg-white rounded-lg shadow-xl">
-          <p class="text-red-600 font-semibold mb-4">Gagal memuat assessment setelah beberapa percobaan</p>
-          <button onclick="window.location.reload()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-            Refresh Manual
-          </button>
-        </div>
-      `;
-      document.body.appendChild(messageDiv);
-    }
-  }, [countdown]);
-
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <Loader className="w-10 h-10 text-blue-600 animate-spin" />
         <p className="text-gray-600">Mempersiapkan Assessment...</p>
-        <p className="text-sm text-gray-500">(Reload dalam {countdown} detik)</p>
       </div>
     </div>
   );

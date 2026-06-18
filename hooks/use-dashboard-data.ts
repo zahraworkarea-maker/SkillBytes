@@ -128,8 +128,9 @@ export function useDashboardData() {
         // Fetch PBL data
         const pblResponse = await pblService.getAllCases(1, 100)
         const pblData = pblResponse?.data || []
-        const pblSubmissions = await pblService.getSubmissions({ page: 1 })
-        const submissionsData = pblSubmissions?.data || []
+        const pblSubmissions = await pblService.getMySubmission()
+        // getMySubmission returns the array directly or inside data based on our api-services.ts
+        const submissionsData = Array.isArray(pblSubmissions) ? pblSubmissions : (pblSubmissions?.data || [])
 
         const totalPBL = pblData.length
         const completedPBL = submissionsData.length

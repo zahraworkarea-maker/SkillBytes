@@ -1,4 +1,4 @@
-import { Home, Folder, Target, FileText, GraduationCap, Building2, Users, Settings, LogOut } from 'lucide-react';
+import { Home, Folder, Target, FileText, GraduationCap, Building2, Users, Settings, LogOut, LineChart } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
 export interface MenuItem {
@@ -23,6 +23,11 @@ export const adminMenuCategories: MenuCategory[] = [
         icon: Home,
         label: 'Dashboard',
         path: '/admin/dashboard',
+      },
+      {
+        icon: LineChart,
+        label: 'DKT',
+        path: '/admin/knowledge-tracing',
       },
       {
         icon: Folder,

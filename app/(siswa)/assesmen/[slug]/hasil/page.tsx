@@ -142,6 +142,51 @@ export default function AssessmentResultPage() {
           </div>
         </div>
 
+        {/* DKT Mastery Section (Mock) */}
+        <div className="mt-8 bg-white rounded-lg shadow-md p-6 border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">🎓 DKT Mastery Progress</h2>
+          <p className="text-sm text-gray-600 mb-6">Peningkatan penguasaan konsep Anda berdasarkan evaluasi adaptif (Data Simulasi).</p>
+          
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="font-medium">Dasar Algoritma</span>
+                <span className="text-blue-600 font-bold">85%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '85%' }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="font-medium">Struktur Data</span>
+                <span className="text-blue-600 font-bold">60%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: '60%' }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="font-medium">Pemrograman Berorientasi Objek</span>
+                <span className="text-yellow-600 font-bold">45%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-yellow-500 h-2.5 rounded-full" style={{ width: '45%' }}></div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6 text-center">
+            <button 
+              onClick={() => router.push('/profile/knowledge-tracing')}
+              className="text-blue-600 text-sm font-medium hover:underline"
+            >
+              Lihat Detail Analisis Kemampuan &rarr;
+            </button>
+          </div>
+        </div>
+
         {/* Detailed Questions Section */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Detail Jawaban</h2>

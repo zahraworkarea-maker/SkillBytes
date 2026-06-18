@@ -6,6 +6,7 @@ import { ProgressCards } from '@/components/dashboard/progress-cards'
 import { ContinueLearning } from '@/components/dashboard/continue-learning'
 import { StudentActivity } from '@/components/dashboard/student-activity'
 import { OverviewChart } from '@/components/dashboard/overview-chart'
+import { KnowledgeTracingChart } from '@/components/dashboard/knowledge-tracing-chart'
 import { Statistics } from '@/components/dashboard/statistics'
 import { DashboardLoadingSkeleton } from '@/components/ui/loading-skeleton'
 import { LazyLoad } from '@/hooks/use-lazy-load'
@@ -68,8 +69,9 @@ export default function DashboardPage() {
           threshold={0.1}
         >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:auto-rows-fr min-h-80">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 flex flex-col gap-5">
               <MemoizedOverviewChart dashboardData={dashboardData} />
+              <KnowledgeTracingChart />
             </div>
             <div className="lg:col-span-1 h-full">
               <MemoizedStatistics dashboardData={dashboardData} />
