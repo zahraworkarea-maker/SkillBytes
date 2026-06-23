@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    container_name: skillbytes-web
+    restart: always
+    ports:
+      - "3060:3000"
+    environment:
+      - NODE_ENV=production

@@ -19,6 +19,7 @@ const nextConfig = {
     ],
   },
   allowedDevOrigins: ['carbonizable-yu-unmomentously.ngrok-free.dev'],
+  output: 'standalone',
 }
 
 export default nextConfig
