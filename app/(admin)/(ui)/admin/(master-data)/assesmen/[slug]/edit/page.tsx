@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Loader } from 'lucide-react'
 import AssessmentForm from '@/components/admin/assessment-form'
+import QuestionEditor from '@/components/admin/question-editor'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { assessmentService } from '@/lib/api-services'
-import { UpdateAssessmentPayload, AssessmentFormPayload } from '@/lib/types/assessment.types'
+import { AssessmentFormPayload } from '@/lib/types/assessment.types'
 import { toast } from 'react-toastify'
 
 export default function EditAssessmentPage() {
@@ -29,6 +31,11 @@ export default function EditAssessmentPage() {
       const response = await assessmentService.getAssessmentBySlug(slug)
       if (response.success && response.data) {
         setAssessmentData(response.data)
+      } else if (response.data) {
+        // Fallback for different response structure
+        setAssessmentData(response.data)
+      } else {
+        setAssessmentData(response)
       }
     } catch (error: any) {
       console.error('Error loading assessment:', error)
@@ -47,10 +54,9 @@ export default function EditAssessmentPage() {
       const response = await assessmentService.updateAssessment(assessmentData.id, data)
       
       if (response.success) {
-        toast.success('Assessment berhasil diperbarui!')
-        setTimeout(() => {
-          router.push('/admin/assesmen')
-        }, 1000)
+        toast.success('Informasi Assessment berhasil diperbarui!')
+        // Reload data just in case slug changed or metadata updated
+        loadAssessment()
       }
     } catch (error: any) {
       console.error('Error updating assessment:', error)
@@ -66,7 +72,7 @@ export default function EditAssessmentPage() {
   }
 
   const handleCancel = () => {
-    router.push('/assesmen')
+    router.push('/admin/assesmen')
   }
 
   if (isLoading) {
@@ -86,18 +92,41 @@ export default function EditAssessmentPage() {
         <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2">
           Edit Assessment
         </h1>
-        <p className="text-gray-600">Update informasi assessment</p>
+        <p className="text-gray-600">Update informasi dan soal assessment</p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="max-w-4xl">
         {assessmentData ? (
-          <AssessmentForm
-            mode="edit"
-            initialData={assessmentData}
-            isLoading={isSubmitting}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-          />
+          <Tabs defaultValue="informasi" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-blue-100 p-1 rounded-xl">
+              <TabsTrigger value="informasi" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm">
+                Informasi Assessment
+              </TabsTrigger>
+              <TabsTrigger value="soal" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm">
+                Soal & Jawaban
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="informasi" className="mt-0">
+              <AssessmentForm
+                mode="edit"
+                initialData={assessmentData}
+                isLoading={isSubmitting}
+                onSubmit={handleSubmit}
+                onCancel={handleCancel}
+              />
+            </TabsContent>
+            
+            <TabsContent value="soal" className="mt-0">
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Edit Soal & Jawaban</h2>
+                <QuestionEditor 
+                  assessmentId={assessmentData.id} 
+                  initialQuestions={assessmentData.questions || []} 
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="text-center text-gray-600">
             <p>Data assessment tidak ditemukan</p>
