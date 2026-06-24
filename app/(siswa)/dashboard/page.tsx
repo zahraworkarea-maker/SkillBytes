@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import dynamic from 'next/dynamic'
 import { ProgressCards } from '@/components/dashboard/progress-cards'
 import { ContinueLearning } from '@/components/dashboard/continue-learning'
 import { StudentActivity } from '@/components/dashboard/student-activity'
 import { OverviewChart } from '@/components/dashboard/overview-chart'
 import { KnowledgeTracingChart } from '@/components/dashboard/knowledge-tracing-chart'
-import { Statistics } from '@/components/dashboard/statistics'
 import { DashboardLoadingSkeleton } from '@/components/ui/loading-skeleton'
 import { LazyLoad } from '@/hooks/use-lazy-load'
 import { useDashboardData } from '@/hooks/use-dashboard-data'
@@ -24,9 +22,6 @@ const MemoizedStudentActivity = ({ dashboardData }: any) =>
 
 const MemoizedOverviewChart = ({ dashboardData }: any) => 
   useMemo(() => <OverviewChart dashboardData={dashboardData} />, [dashboardData])
-
-const MemoizedStatistics = ({ dashboardData }: any) => 
-  useMemo(() => <Statistics dashboardData={dashboardData} />, [dashboardData])
 
 export default function DashboardPage() {
   const [activeCard, setActiveCard] = useState('materi')
@@ -61,21 +56,15 @@ export default function DashboardPage() {
         {/* Bottom Row - Less critical, lazy load until visible */}
         <LazyLoad 
           placeholder={
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:auto-rows-fr min-h-80">
-              <div className="lg:col-span-2 bg-gray-200 rounded animate-pulse" />
-              <div className="lg:col-span-1 bg-gray-200 rounded animate-pulse" />
+            <div className="grid grid-cols-1 gap-5 lg:auto-rows-fr min-h-80">
+              <div className="bg-gray-200 rounded animate-pulse" />
             </div>
           }
           threshold={0.1}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:auto-rows-fr min-h-80">
-            <div className="lg:col-span-2 flex flex-col gap-5">
-              <MemoizedOverviewChart dashboardData={dashboardData} />
-              <KnowledgeTracingChart />
-            </div>
-            <div className="lg:col-span-1 h-full">
-              <MemoizedStatistics dashboardData={dashboardData} />
-            </div>
+          <div className="grid grid-cols-1 gap-5 lg:auto-rows-fr min-h-80">
+            <MemoizedOverviewChart dashboardData={dashboardData} />
+            <KnowledgeTracingChart />
           </div>
         </LazyLoad>
       </main>

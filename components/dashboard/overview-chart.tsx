@@ -17,13 +17,13 @@ export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
 
   // Use real data from dashboardData, otherwise fallback to default
   const overviewData = dashboardData?.monthlyStats || [
-    { month: 'Jan', materi: 40, assesmen: 30 },
-    { month: 'Feb', materi: 50, assesmen: 42 },
-    { month: 'Mar', materi: 73, assesmen: 58 },
-    { month: 'Apr', materi: 55, assesmen: 50 },
-    { month: 'May', materi: 63, assesmen: 52 },
-    { month: 'Jun', materi: 46, assesmen: 40 },
-    { month: 'Jul', materi: 30, assesmen: 25 },
+    { month: 'Jan', pbl: 70, assesmen: 75 },
+    { month: 'Feb', pbl: 75, assesmen: 78 },
+    { month: 'Mar', pbl: 80, assesmen: 82 },
+    { month: 'Apr', pbl: 78, assesmen: 80 },
+    { month: 'May', pbl: 85, assesmen: 85 },
+    { month: 'Jun', pbl: 88, assesmen: 86 },
+    { month: 'Jul', pbl: 90, assesmen: 88 },
   ]
 
   return (
@@ -37,7 +37,7 @@ export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
           <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             <div className="flex items-center gap-1 md:gap-1.5">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-xs md:text-sm text-gray-500">Materi</span>
+              <span className="text-xs md:text-sm text-gray-500">PBL</span>
             </div>
             <div className="flex items-center gap-1 md:gap-1.5">
               <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -59,8 +59,8 @@ export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
               tick={{ fontSize: 13, fill: '#9ca3af' }}
               axisLine={false}
               tickLine={false}
-              domain={[25, 80]}
-              ticks={[30, 40, 50, 60, 70, 80]}
+              domain={[0, 100]}
+              ticks={[0, 20, 40, 60, 80, 100]}
             />
             <Tooltip
               contentStyle={{
@@ -72,7 +72,8 @@ export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
             />
             <Line
               type="monotone"
-              dataKey="materi"
+              dataKey="pbl"
+              name="Nilai PBL"
               stroke="#3b82f6"
               strokeWidth={2.5}
               dot={false}
@@ -83,6 +84,7 @@ export function OverviewChart({ dashboardData }: { dashboardData?: any }) {
             <Line
               type="monotone"
               dataKey="assesmen"
+              name="Nilai Assesmen"
               stroke="#22c55e"
               strokeWidth={2.5}
               dot={false}

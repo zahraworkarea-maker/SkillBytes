@@ -87,33 +87,59 @@ export function KnowledgeTracingChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* Needs Attention Side */}
-        <div className="flex flex-col gap-3 justify-center">
-          <h4 className="text-sm font-medium text-gray-700 border-b pb-2">Status Penguasaan</h4>
-          {needs_attention.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-start gap-2 text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-xs">Ada beberapa materi yang perlu dipelajari kembali karena nilainya di bawah 60.</p>
-              </div>
-              <div className="flex flex-col gap-1.5 mt-1 max-h-36 overflow-y-auto pr-1">
-                {needs_attention.map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs border border-gray-100">
-                    <span className="font-medium text-gray-700 truncate mr-2" title={item.material_name}>{item.material_name}</span>
-                    <span className="font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{item.mastery_score}</span>
+        {/* Mastery Levels Side */}
+        <div className="flex flex-col gap-2 h-full max-h-64 md:max-h-full">
+          <h4 className="text-sm font-medium text-gray-700 border-b pb-2">Detail Penguasaan Materi</h4>
+          <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
+            {mastery_list.map((item: any, idx: number) => {
+              const score = item.mastery_score;
+              let statusText = "Sangat Baik";
+              let bgClass = "bg-emerald-50 border-emerald-100";
+              let textClass = "text-emerald-700";
+              let barClass = "bg-emerald-500";
+              
+              if (score < 40) {
+                statusText = "Sangat Kurang";
+                bgClass = "bg-red-50 border-red-100";
+                textClass = "text-red-700";
+                barClass = "bg-red-500";
+              } else if (score < 60) {
+                statusText = "Perlu Perhatian";
+                bgClass = "bg-orange-50 border-orange-100";
+                textClass = "text-orange-700";
+                barClass = "bg-orange-500";
+              } else if (score < 80) {
+                statusText = "Cukup";
+                bgClass = "bg-amber-50 border-amber-100";
+                textClass = "text-amber-700";
+                barClass = "bg-amber-500";
+              }
+
+              return (
+                <div key={idx} className={`flex flex-col p-2.5 rounded-lg border ${bgClass}`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className={`font-medium text-xs mr-2 ${textClass}`} title={item.material_name}>
+                      {item.material_name}
+                    </span>
+                    <span className={`font-bold text-xs ${textClass}`}>
+                      {score}%
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-             <div className="flex items-start gap-2 text-emerald-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100 h-full">
-                <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-                <div className="text-xs">
-                  <p className="font-medium mb-1">Luar Biasa!</p>
-                  <p className="text-emerald-700 opacity-90">Anda telah menguasai semua materi dengan baik di atas batas aman.</p>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider opacity-80 ${textClass}`}>
+                      {statusText}
+                    </span>
+                    <div className="w-20 h-1.5 bg-black/5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${barClass}`} 
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-             </div>
-          )}
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
