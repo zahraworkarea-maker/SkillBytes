@@ -1757,3 +1757,17 @@ export const apiHandler = async (url: string, config: any = {}) => {
     throw error;
   }
 };
+
+
+// ============= Dashboard Services =============
+
+export const dashboardService = {
+  async getDashboardStats() {
+    try {
+      const response = await apiClient.get('/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
