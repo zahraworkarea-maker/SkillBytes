@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -7,6 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Users, GraduationCap, Briefcase, FileText } from "lucide-react";
 
 interface OverviewData {
@@ -16,9 +24,34 @@ interface OverviewData {
   pendingSubmissions: number;
 }
 
+const MONTHS = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+];
+
 export function OverviewCards({ data }: { data: OverviewData }) {
+  const currentMonthIndex = new Date().getMonth().toString();
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h3 className="text-lg font-medium text-foreground">Statistik Bulan {MONTHS[parseInt(selectedMonth)]}</h3>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px] bg-background">
+            <SelectValue placeholder="Pilih Bulan" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map((month, index) => (
+              <SelectItem key={index} value={index.toString()}>
+                {month}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 border-0 hover:scale-105 transition-transform duration-300">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-blue-50">Total Siswa Aktif</CardTitle>
@@ -70,6 +103,7 @@ export function OverviewCards({ data }: { data: OverviewData }) {
           </p>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
