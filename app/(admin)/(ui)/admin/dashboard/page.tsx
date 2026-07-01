@@ -24,25 +24,25 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        setLoading(true);
-        const response = await dashboardService.getDashboardStats();
-        if (response.success) {
-          setData(response.data);
-        } else {
-          toast.error("Gagal mengambil data dashboard.");
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        toast.error("Terjadi kesalahan saat mengambil data dashboard.");
-      } finally {
-        setLoading(false);
+  const fetchDashboardStats = async (month?: string) => {
+    try {
+      setLoading(true);
+      const response = await dashboardService.getDashboardStats(month);
+      if (response.success) {
+        setData(response.data);
+      } else {
+        toast.error("Gagal mengambil data dashboard.");
       }
-    };
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      toast.error("Terjadi kesalahan saat mengambil data dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchDashboardStats();
+  useEffect(() => {
+    fetchDashboardStats(new Date().getMonth().toString());
   }, []);
 
   if (loading) {
@@ -93,7 +93,7 @@ export default function AdminDashboardPage() {
         </Select>
       </div>
 
-      <OverviewCards data={data.overview} />
+      <OverviewCards data={data.overview} onMonthChange={(month) => fetchDashboardStats(month)} />
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="col-span-4 lg:col-span-4">

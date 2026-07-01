@@ -21,6 +21,7 @@ import { usePBLCase } from '@/hooks/use-pbl-case';
 import { pblService } from '@/lib/api-services';
 import { PBLDetailLoadingSkeleton } from '@/components/ui/loading-skeleton';
 import styles from './pbl-content.module.css';
+import { LiveCoding } from '@/components/pbl/live-coding';
 
 // Definisikan tipe PBLSubmission lokal
 interface PBLSubmission {
@@ -474,6 +475,9 @@ export default function PBLDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Live Coding Section */}
+            <LiveCoding />
 
             {/* Submission Form / Existing Submission Data */}
             <div className="bg-white rounded-xl shadow-md p-6 md:p-8">

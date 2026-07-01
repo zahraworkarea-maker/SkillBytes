@@ -29,15 +29,25 @@ const MONTHS = [
   "Juli", "Agustus", "September", "Oktober", "November", "Desember"
 ];
 
-export function OverviewCards({ data }: { data: OverviewData }) {
+interface OverviewCardsProps {
+  data: OverviewData;
+  onMonthChange?: (month: string) => void;
+}
+
+export function OverviewCards({ data, onMonthChange }: OverviewCardsProps) {
   const currentMonthIndex = new Date().getMonth().toString();
   const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
+
+  const handleMonthChange = (val: string) => {
+    setSelectedMonth(val);
+    if (onMonthChange) onMonthChange(val);
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h3 className="text-lg font-medium text-foreground">Statistik Bulan {MONTHS[parseInt(selectedMonth)]}</h3>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+        <Select value={selectedMonth} onValueChange={handleMonthChange}>
           <SelectTrigger className="w-[180px] bg-background">
             <SelectValue placeholder="Pilih Bulan" />
           </SelectTrigger>

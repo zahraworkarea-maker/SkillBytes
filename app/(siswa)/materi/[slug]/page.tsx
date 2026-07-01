@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react'
 
 import { materiData } from '@/lib/materi-data'
 import { materiService, userResumeService } from '@/lib/api-services'
-import { TimerCountdown } from '@/components/materi/timer-countdown'
 import { MediaViewer } from '@/components/materi/media-viewer'
 import { Button } from '@/components/ui/button'
 
@@ -29,7 +28,6 @@ export default function MateriDetailPage() {
   const [lesson, setLesson] = useState<LessonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isTimerComplete, setIsTimerComplete] = useState(false)
   const [isMarkingComplete, setIsMarkingComplete] = useState(false)
   const [completeError, setCompleteError] = useState<string | null>(null)
   const [resumeText, setResumeText] = useState('')
@@ -261,8 +259,6 @@ export default function MateriDetailPage() {
     return <p className="text-center py-10">Materi tidak ditemukan</p>
   }
 
-  const durationMinutes = parseInt(lesson.duration) || 25
-
   // Construct full file URL using explicit backend URL
   const backendImageUrl = `${process.env.NEXT_PUBLIC_IMAGE_URL}`
   const fullFileUrl = lesson.file_url?.startsWith('http')
@@ -279,13 +275,6 @@ export default function MateriDetailPage() {
         </Link>
 
         <h1 className="text-3xl font-bold text-slate-800 mb-4">{lesson.title}</h1>
-
-        {/* 🔥 Tambahkan props onComplete di sini */}
-        <TimerCountdown 
-          lessonId={lessonId} 
-          durationMinutes={durationMinutes} 
-          onComplete={() => setIsTimerComplete(true)} 
-        />
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 md:p-6 mt-6 flex justify-center">
           <div className="w-full max-w-4xl">
@@ -456,48 +445,36 @@ export default function MateriDetailPage() {
           )}
           
           <div className="flex justify-end gap-3">
-            {!isTimerComplete ? (
-              <Button
-                disabled={true}
-                size="lg"
-                className="px-8 py-6 rounded-xl text-base font-semibold bg-slate-200 text-slate-500 cursor-not-allowed"
-              >
-                Selesaikan Waktu Belajar Dahulu
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={() => handleComplete()}
-                  disabled={isMarkingComplete}
-                  size="lg"
-                  className="px-8 py-6 rounded-xl text-base font-semibold transition-all duration-300 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isMarkingComplete ? (
-                    'Memproses...'
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 mr-2" />
-                      Selesai
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => handleComplete('/pbl')}
-                  disabled={isMarkingComplete}
-                  size="lg"
-                  className="px-8 py-6 rounded-xl text-base font-semibold transition-all duration-300 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isMarkingComplete ? (
-                    'Memproses...'
-                  ) : (
-                    <>
-                      <ChevronRight className="w-5 h-5 mr-2" />
-                      Lanjut ke PBL
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
+            <Button
+              onClick={() => handleComplete()}
+              disabled={isMarkingComplete}
+              size="lg"
+              className="px-8 py-6 rounded-xl text-base font-semibold transition-all duration-300 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isMarkingComplete ? (
+                'Memproses...'
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  Selesai
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => handleComplete('/pbl')}
+              disabled={isMarkingComplete}
+              size="lg"
+              className="px-8 py-6 rounded-xl text-base font-semibold transition-all duration-300 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isMarkingComplete ? (
+                'Memproses...'
+              ) : (
+                <>
+                  <ChevronRight className="w-5 h-5 mr-2" />
+                  Lanjut ke PBL
+                </>
+              )}
+            </Button>
           </div>
         </div>
 

@@ -1762,9 +1762,10 @@ export const apiHandler = async (url: string, config: any = {}) => {
 // ============= Dashboard Services =============
 
 export const dashboardService = {
-  async getDashboardStats() {
+  async getDashboardStats(month?: string) {
     try {
-      const response = await apiClient.get('/dashboard/stats');
+      const params = month ? { month } : undefined;
+      const response = await apiClient.get('/dashboard/stats', { params });
       return response.data;
     } catch (error) {
       throw error;

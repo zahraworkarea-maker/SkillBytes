@@ -37,6 +37,8 @@ export interface DashboardData {
     pbl: number
     assesmen: number
   }[]
+  rawAssessmentResults?: any[]
+  rawPblSubmissions?: any[]
 }
 
 const emptyData: DashboardData = {
@@ -62,6 +64,8 @@ const emptyData: DashboardData = {
   },
   activities: [],
   monthlyStats: [],
+  rawAssessmentResults: [],
+  rawPblSubmissions: [],
 }
 
 function timeAgo(date: Date) {
@@ -314,6 +318,8 @@ export function useDashboardData() {
           },
           activities,
           monthlyStats: monthlyStats,
+          rawAssessmentResults: resultsData,
+          rawPblSubmissions: submissionsData,
         })
       } catch (err) {
         console.error('Error fetching dashboard data:', err)
